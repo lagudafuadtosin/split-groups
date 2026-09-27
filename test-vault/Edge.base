@@ -1,0 +1,24 @@
+filters:
+  or:
+    - file.inFolder("Recipes")
+    - file.inFolder("Edge")
+views:
+  - type: split-groups
+    name: By category (links, case, duplicates)
+    splitBy: note.category
+    order:
+      - file.name
+      - note.category
+      - note.tags
+  - type: split-groups
+    name: By tags
+    splitBy: note.tags
+    order:
+      - file.name
+      - note.tags
+  - type: split-groups
+    name: By servings (numbers)
+    splitBy: note.servings
+    order:
+      - file.name
+      - note.servings

@@ -1,0 +1,6 @@
+---
+category: [side]
+time: 90
+---
+
+Steamed bean pudding.

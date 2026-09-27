@@ -1,0 +1,64 @@
+// Pure grouping logic, kept free of the Obsidian runtime so it can be tested
+// with plain Node. The view hands in each note's raw values as strings.
+
+export const NO_VALUE_KEY = "\u0000no-value";
+export const NO_VALUE_LABEL = "(no value)";
+
+export interface Group<T> {
+  key: string;
+  label: string;
+  entries: T[];
+}
+
+// A property value as it arrives: "[[Recipes/Main|Main dish]]", "#main",
+// " Main ", "42". Returns the text a person would call the group, or "" when
+// there is nothing there.
+export function cleanValue(raw: string): string {
+  let s = raw.trim();
+  if (s === "" || s === "null") return "";
+  const link = s.match(/^!?\[\[([^\]|#^]*)(?:[#^][^\]|]*)?(?:\|([^\]]*))?\]\]$/);
+  if (link) {
+    const target = link[1].trim();
+    const alias = link[2]?.trim();
+    s = alias || target.split("/").pop()!.replace(/\.md$/i, "");
+  } else if (s.startsWith("#") && !/\s/.test(s)) {
+    s = s.slice(1);
+  }
+  return s.trim();
+}
+
+// Case and accent differences are one group ("Main" and "main"), shown with
+// the spelling seen first.
+export function groupKey(label: string): string {
+  return label.normalize("NFKC").toLocaleLowerCase();
+}
+
+export function splitIntoGroups<T>(
+  items: T[],
+  valuesOf: (item: T) => string[],
+  showNoValue: boolean,
+): Group<T>[] {
+  const groups = new Map<string, Group<T>>();
+  const add = (key: string, label: string, item: T) => {
+    let g = groups.get(key);
+    if (!g) groups.set(key, (g = { key, label, entries: [] }));
+    g.entries.push(item);
+  };
+  for (const item of items) {
+    const seen = new Set<string>();
+    for (const raw of valuesOf(item)) {
+      const label = cleanValue(raw);
+      if (!label) continue;
+      const key = groupKey(label);
+      if (seen.has(key)) continue; // [main, Main] puts a note in "main" once
+      seen.add(key);
+      add(key, label, item);
+    }
+    if (seen.size === 0 && showNoValue) add(NO_VALUE_KEY, NO_VALUE_LABEL, item);
+  }
+  // Notes keep the order Bases sorted them in. Groups sort by name, numbers
+  // naturally (2 before 10), with "(no value)" last.
+  return [...groups.values()].sort((a, b) =>
+    a.key === NO_VALUE_KEY ? 1 : b.key === NO_VALUE_KEY ? -1 : a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" }),
+  );
+}

@@ -1,0 +1,27 @@
+filters:
+  and:
+    - file.inFolder("Recipes")
+views:
+  - type: split-groups
+    name: Split groups
+    order:
+      - file.name
+      - category
+      - time
+    splitBy: note.category
+  - type: split-groups
+    name: Split groups as a list
+    order:
+      - file.name
+      - time
+    splitBy: note.category
+    layout: list
+  - type: table
+    name: Built-in table grouped by category
+    groupBy:
+      property: category
+      direction: ASC
+    order:
+      - file.name
+      - category
+      - time

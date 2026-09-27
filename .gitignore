@@ -1,0 +1,8 @@
+node_modules/
+main.js
+.test-build/
+cotalk-split/
+test-vault/.obsidian/
+test-vault/Bulk/
+test-vault/Bulk.base
+test-vault/Welcome.md
