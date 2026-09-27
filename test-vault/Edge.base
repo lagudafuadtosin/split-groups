@@ -5,20 +5,20 @@ filters:
 views:
   - type: split-groups
     name: By category (links, case, duplicates)
-    splitBy: note.category
     order:
       - file.name
-      - note.category
-      - note.tags
+      - category
+      - tags
+    splitBy: note.category
   - type: split-groups
     name: By tags
-    splitBy: note.tags
     order:
       - file.name
-      - note.tags
+      - tags
+    splitBy: note.tags
   - type: split-groups
     name: By servings (numbers)
-    splitBy: note.servings
     order:
       - file.name
-      - note.servings
+      - servings
+    splitBy: note.servings

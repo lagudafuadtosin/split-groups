@@ -75,3 +75,10 @@
 .split-groups-title {
   cursor: pointer;
 }
+
+/* Phones have no hover to reveal a cut-off value, so wrap instead. */
+.is-mobile .split-groups-table th,
+.is-mobile .split-groups-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
