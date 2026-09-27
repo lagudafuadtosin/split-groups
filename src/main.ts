@@ -74,7 +74,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
       return;
     }
     // Built off-DOM and attached once, so a large vault repaints once.
-    const frag = document.createDocumentFragment();
+    const frag = createFragment();
     for (const g of groups) {
       const section = frag.createEl("details", { cls: "split-groups-group" });
       section.open = true;
