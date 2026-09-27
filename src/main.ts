@@ -108,7 +108,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
       this.renderLink(tr.createEl("td"), entry);
       for (const p of columns) {
         const text = cellText(entry.getValue(p));
-        // The full value on hover, since narrow columns cut it short.
+        // Full value on hover, since narrow columns cut it short.
         tr.createEl("td", { text, attr: text ? { title: text } : {} });
       }
     }
@@ -128,10 +128,16 @@ class SplitGroupsView extends BasesView implements HoverParent {
 
   private renderLink(parent: HTMLElement, entry: BasesEntry) {
     const path = entry.file.path;
-    const link = parent.createEl("a", { cls: "internal-link split-groups-title", text: entry.file.basename, href: path, attr: { "data-href": path } });
-    // Plain click opens here, Ctrl/Cmd-click or middle click in a new tab,
-    // like every other link in Obsidian.
-    const open = (evt: MouseEvent) => {
+    // No href: a note's path is never handed to the browser as a URL, so a file
+    // named like "javascript:..." can only ever open as a note.
+    const link = parent.createEl("a", {
+      cls: "internal-link split-groups-title",
+      text: entry.file.basename,
+      attr: { "data-href": path, role: "link", tabindex: "0" },
+    });
+    // Click opens here; Ctrl/Cmd click, middle click or Ctrl/Cmd Enter opens a
+    // new tab, like other links in Obsidian.
+    const open = (evt: MouseEvent | KeyboardEvent) => {
       evt.preventDefault();
       void this.app.workspace.openLinkText(path, "", Keymap.isModEvent(evt));
     };
@@ -139,7 +145,10 @@ class SplitGroupsView extends BasesView implements HoverParent {
     link.addEventListener("auxclick", (evt) => {
       if (evt.button === 1) open(evt);
     });
-    // Page preview on hover (Ctrl/Cmd + hover by default).
+    link.addEventListener("keydown", (evt) => {
+      if (evt.key === "Enter") open(evt);
+    });
+    // Page preview on Ctrl/Cmd hover.
     link.addEventListener("mouseover", (evt) => {
       this.app.workspace.trigger("hover-link", { event: evt, source: VIEW_TYPE, hoverParent: this, targetEl: link, linktext: path });
     });

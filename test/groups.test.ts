@@ -18,10 +18,10 @@ test("the same value twice in one note counts once", () => {
   assert.deepEqual(run([{ name: "a", values: ["main", "Main", " main "] }]), ["main: a"]);
 });
 
-test("links group by their target, or alias when given", () => {
+test("links group by the note they point to, alias or not", () => {
   assert.equal(cleanValue("[[Main]]"), "Main");
   assert.equal(cleanValue("[[Recipes/Main.md]]"), "Main");
-  assert.equal(cleanValue("[[Main|Main dish]]"), "Main dish");
+  assert.equal(cleanValue("[[Main|Main dish]]"), "Main");
   assert.equal(cleanValue("[[Main#Heading]]"), "Main");
   assert.equal(cleanValue("![[Main]]"), "Main");
 });

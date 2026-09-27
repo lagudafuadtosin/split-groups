@@ -14,11 +14,13 @@ Group a Base by a list property today and a recipe with `category: [main, side]`
 
 - Every item in a list gets its own group. A single value works too.
 - `Main`, `main` and ` main ` are one group, shown with the spelling seen first.
-- Links group by their target: `[[Main]]`, `[[Recipes/Main.md]]` and plain `main` share a group. An alias (`[[Main|Main dish]]`) is used as the name.
+- Links group by the note they point to: `[[Main]]`, `[[Recipes/Main.md]]`, `[[Main|Main dish]]` and plain `main` share a group.
 - A tag's leading `#` is dropped.
 - The same value twice in one note counts once.
 - Notes with nothing in the property go to **(no value)** at the end. Turn that off with **Show notes with no value**.
 - Groups sort by name, numbers naturally (2 before 10). Notes inside a group keep the Base's own sort.
+
+If you turn the plugin off, Split groups views show "Unknown view type" until you turn it back on or switch that view to Table. Your notes are never changed.
 
 Click a note to open it, Ctrl or Cmd click (or middle click) for a new tab, and Ctrl or Cmd hover for a preview.
 

@@ -10,25 +10,24 @@ export interface Group<T> {
   entries: T[];
 }
 
-// A property value as it arrives: "[[Recipes/Main|Main dish]]", "#main",
-// " Main ", "42". Returns the text a person would call the group, or "" when
-// there is nothing there.
+// Turns one raw value into the name of its group: "[[Recipes/Main|Main dish]]"
+// becomes "Main", "#main" becomes "main", " Main " becomes "Main". Returns ""
+// when there is nothing there.
 export function cleanValue(raw: string): string {
   let s = raw.trim();
   if (s === "" || s === "null") return "";
   const link = s.match(/^!?\[\[([^\]|#^]*)(?:[#^][^\]|]*)?(?:\|([^\]]*))?\]\]$/);
   if (link) {
-    const target = link[1].trim();
-    const alias = link[2]?.trim();
-    s = alias || target.split("/").pop()!.replace(/\.md$/i, "");
+    // Group by the note the link points to; an alias is only how it is shown.
+    s = link[1].trim().split("/").pop()!.replace(/\.md$/i, "");
   } else if (s.startsWith("#") && !/\s/.test(s)) {
     s = s.slice(1);
   }
   return s.trim();
 }
 
-// Case and accent differences are one group ("Main" and "main"), shown with
-// the spelling seen first.
+// Case differences are one group ("Main" and "main"), shown with the spelling
+// seen first. Accents still count: "Café" and "Cafe" stay apart.
 export function groupKey(label: string): string {
   return label.normalize("NFKC").toLocaleLowerCase();
 }
