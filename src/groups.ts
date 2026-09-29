@@ -36,6 +36,7 @@ export function splitIntoGroups<T>(
   items: T[],
   valuesOf: (item: T) => string[],
   showNoValue: boolean,
+  reverse = false,
 ): Group<T>[] {
   const groups = new Map<string, Group<T>>();
   const add = (key: string, label: string, item: T) => {
@@ -55,9 +56,13 @@ export function splitIntoGroups<T>(
     }
     if (seen.size === 0 && showNoValue) add(NO_VALUE_KEY, NO_VALUE_LABEL, item);
   }
-  // Notes keep the order Bases sorted them in. Groups sort by name, numbers
-  // naturally (2 before 10), with "(no value)" last.
-  return [...groups.values()].sort((a, b) =>
-    a.key === NO_VALUE_KEY ? 1 : b.key === NO_VALUE_KEY ? -1 : a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" }),
-  );
+  // Notes keep the order Bases sorted them in.
+  // Groups sort by name, numbers naturally (2 before 10); flipped by `reverse`.
+  // "(no value)" is always last.
+  return [...groups.values()].sort((a, b) => {
+    if (a.key === NO_VALUE_KEY) return 1;
+    if (b.key === NO_VALUE_KEY) return -1;
+    const cmp = a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" });
+    return reverse ? -cmp : cmp;
+  });
 }

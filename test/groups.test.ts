@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { cleanValue, splitIntoGroups, NO_VALUE_LABEL } from "../src/groups";
 
 type Note = { name: string; values: string[] };
-const run = (notes: Note[], showNoValue = true) =>
-  splitIntoGroups(notes, (n) => n.values, showNoValue).map((g) => `${g.label}: ${g.entries.map((n) => n.name).join(" ")}`);
+const run = (notes: Note[], showNoValue = true, reverse = false) =>
+  splitIntoGroups(notes, (n) => n.values, showNoValue, reverse).map((g) => `${g.label}: ${g.entries.map((n) => n.name).join(" ")}`);
 
 test("a note lands in every group its list names", () => {
   assert.deepEqual(run([{ name: "jollof", values: ["main", "side"] }, { name: "moi", values: ["side"] }]), ["main: jollof", "side: jollof moi"]);
@@ -53,6 +53,14 @@ test("notes keep the order they arrive in", () => {
 
 test("a group literally named no value does not merge with notes that have none", () => {
   assert.deepEqual(run([{ name: "a", values: ["(no value)"] }, { name: "b", values: [] }]), ["(no value): a", `${NO_VALUE_LABEL}: b`]);
+});
+
+test("reverse flips group order, numbers included", () => {
+  assert.deepEqual(run([{ name: "a", values: ["10"] }, { name: "b", values: ["2"] }], true, true), ["10: a", "2: b"]);
+});
+
+test("(no value) stays last even when reversed", () => {
+  assert.deepEqual(run([{ name: "a", values: ["x"] }, { name: "b", values: [] }], true, true), ["x: a", `${NO_VALUE_LABEL}: b`]);
 });
 
 test("3,000 notes with up to 3 values each group quickly", () => {
