@@ -1,1 +1,1 @@
-In the table layout, the note name column now follows the order set under Properties, and columns can be resized by dragging the line at the edge of a header. Widths are saved with the view, and widths set in a Table view carry over (#2).
+Each group heading now has a + that makes a new note with that group's value already filled in, through the same new-note flow as the base's own New button. Code cleanups from Obsidian's review rules, which now run on every release. Needs Obsidian 1.10.2 or later.

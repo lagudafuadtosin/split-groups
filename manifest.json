@@ -1,8 +1,8 @@
 {
   "id": "split-groups",
   "name": "Split Groups",
-  "version": "0.1.4",
-  "minAppVersion": "1.10.0",
+  "version": "0.1.5",
+  "minAppVersion": "1.10.2",
   "description": "A Bases view that puts a note in every group its list property names, instead of one combined group.",
   "author": "Fuad Laguda",
   "authorUrl": "https://github.com/lagudafuadtosin",
