@@ -14,7 +14,8 @@ export default class SplitGroupsPlugin extends Plugin {
       factory: (controller, containerEl) => new SplitGroupsView(controller, containerEl),
       options: () => [
         { type: "property", key: "splitBy", displayName: "Split by" },
-        { type: "dropdown", key: "layout", displayName: "Layout", default: "table", options: { table: "Table", list: "List" } },
+        { type: "dropdown", key: "sortOrder", displayName: "Sort", default: "asc", options: { asc: "A → Z", desc: "Z → A" } as Record<string, string> },
+        { type: "dropdown", key: "layout", displayName: "Layout", default: "table", options: { table: "Table", list: "List" } as Record<string, string> },
         { type: "toggle", key: "showNoValue", displayName: "Show notes with no value", default: true },
       ],
     });
@@ -68,7 +69,8 @@ class SplitGroupsView extends BasesView implements HoverParent {
     // The table keeps the split property as a column so every value stays
     // visible; the list drops it because the group heading already says it.
     const columns = this.config.getOrder().filter((p) => p !== "file.name" && (asTable || p !== prop));
-    const groups = splitIntoGroups(this.data.data, (e) => rawStrings(e.getValue(prop)), showNoValue);
+    const reverse = this.config.get("sortOrder") === "desc";
+    const groups = splitIntoGroups(this.data.data, (e) => rawStrings(e.getValue(prop)), showNoValue, reverse);
     if (groups.length === 0) {
       root.createDiv({ cls: "split-groups-hint", text: "No notes match this view." });
       return;
