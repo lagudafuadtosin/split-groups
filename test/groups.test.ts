@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanValue, splitIntoGroups, NO_VALUE_LABEL } from "../src/groups";
+import { cleanValue, splitIntoGroups, NO_VALUE_LABEL, tableColumns, savedWidths } from "../src/groups";
 
 type Note = { name: string; values: string[] };
 const run = (notes: Note[], showNoValue = true, reverse = false) =>
@@ -70,4 +70,18 @@ test("3,000 notes with up to 3 values each group quickly", () => {
   const ms = performance.now() - t0;
   assert.equal(groups.length, 40);
   assert.ok(ms < 200, `took ${ms.toFixed(1)} ms`);
+});
+
+test("the note name column follows the Properties order", () => {
+  assert.deepEqual(tableColumns(["note.category", "file.name", "note.time"]), ["note.category", "file.name", "note.time"]);
+});
+
+test("the note name column goes first when it is not listed", () => {
+  assert.deepEqual(tableColumns(["note.category", "note.time"]), ["file.name", "note.category", "note.time"]);
+});
+
+test("saved widths keep only positive numbers", () => {
+  assert.deepEqual(savedWidths({ "file.name": 220.4, "note.time": 0, "note.category": "wide", "note.x": -5 }), { "file.name": 220 });
+  assert.deepEqual(savedWidths(undefined), {});
+  assert.deepEqual(savedWidths("200"), {});
 });

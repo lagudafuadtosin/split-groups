@@ -1,5 +1,5 @@
 import { BasesEntry, BasesPropertyId, BasesView, HoverParent, HoverPopover, Keymap, Plugin, QueryController, Value } from "obsidian";
-import { splitIntoGroups, cleanValue } from "./groups";
+import { splitIntoGroups, cleanValue, tableColumns, savedWidths, NAME_COLUMN } from "./groups";
 
 // Split Groups: a Bases view where a note shows up under EVERY value of a list
 // property, instead of under one combined group. A recipe with
@@ -71,7 +71,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
       }
       const columns = this.config.getOrder().filter((p) => p !== "file.name");
       const all = createDiv({ cls: "split-groups-all" });
-      if (asTable) this.renderTable(all, this.data.data, columns);
+      if (asTable) this.renderTable(all, this.data.data, tableColumns(this.config.getOrder()));
       else {
         const list = all.createDiv({ cls: "split-groups-list" });
         for (const entry of this.data.data) this.renderEntry(list, entry, columns);
@@ -82,7 +82,9 @@ class SplitGroupsView extends BasesView implements HoverParent {
     const showNoValue = this.config.get("showNoValue") !== false;
     // The table keeps the split property as a column so every value stays
     // visible; the list drops it because the group heading already says it.
-    const columns = this.config.getOrder().filter((p) => p !== "file.name" && (asTable || p !== prop));
+    const columns = asTable
+      ? tableColumns(this.config.getOrder())
+      : this.config.getOrder().filter((p) => p !== "file.name" && p !== prop);
     const reverse = this.config.get("sortOrder") === "desc";
     const groups = splitIntoGroups(this.data.data, (e) => rawStrings(e.getValue(prop)), showNoValue, reverse);
     if (groups.length === 0) {
@@ -111,23 +113,75 @@ class SplitGroupsView extends BasesView implements HoverParent {
     const table = wrap.createEl("table", { cls: "split-groups-table" });
     // Every group is its own table, so widths are fixed here rather than left to
     // each table's content; otherwise the columns shift from group to group.
+    // Widths dragged in this view (or a Table view it was switched from) are
+    // kept under "columnSize"; until then the name takes 40% and the rest share.
+    const sizes = savedWidths(this.config.get("columnSize"));
+    const allSized = columns.every((p) => sizes[p] !== undefined);
     const cols = table.createEl("colgroup");
-    const nameWidth = columns.length === 0 ? 100 : 40;
-    cols.createEl("col").style.width = `${nameWidth}%`;
-    for (let i = 0; i < columns.length; i++) cols.createEl("col").style.width = `${(100 - nameWidth) / columns.length}%`;
+    const others = columns.length - 1;
+    for (const p of columns) {
+      const col = cols.createEl("col", { attr: { "data-prop": p } });
+      if (sizes[p] !== undefined) col.style.width = `${sizes[p]}px`;
+      else if (others === 0) col.style.width = "100%";
+      else col.style.width = p === NAME_COLUMN ? "40%" : `${60 / others}%`;
+    }
+    if (allSized) table.style.width = `${columns.reduce((sum, p) => sum + sizes[p], 0)}px`;
     const head = table.createEl("thead").createEl("tr");
-    head.createEl("th", { text: this.config.getDisplayName("file.name") });
-    for (const p of columns) head.createEl("th", { text: this.config.getDisplayName(p) });
+    for (const p of columns) {
+      const th = head.createEl("th", { text: this.config.getDisplayName(p), attr: { "data-prop": p } });
+      const grip = th.createDiv({ cls: "split-groups-resize", attr: { "aria-hidden": "true" } });
+      grip.addEventListener("pointerdown", (evt) => this.startResize(evt, p, th));
+    }
     const body = table.createEl("tbody");
     for (const entry of entries) {
       const tr = body.createEl("tr");
-      this.renderLink(tr.createEl("td"), entry);
       for (const p of columns) {
+        if (p === NAME_COLUMN) {
+          this.renderLink(tr.createEl("td"), entry);
+          continue;
+        }
         const text = cellText(entry.getValue(p));
         // Full value on hover, since narrow columns cut it short.
         tr.createEl("td", { text, attr: text ? { title: text } : {} });
       }
     }
+  }
+
+  // Dragging a header's edge resizes that column in every group at once. On
+  // the first drag every column is pinned at its current width, so only the
+  // dragged one moves. The widths are saved with the view when the drag ends.
+  private startResize(evt: PointerEvent, prop: string, th: HTMLElement) {
+    evt.preventDefault();
+    evt.stopPropagation();
+    const win = th.win;
+    const startX = evt.clientX;
+    const widths: Record<string, number> = {};
+    th.parentElement?.querySelectorAll<HTMLElement>("th[data-prop]").forEach((h) => {
+      widths[h.dataset.prop!] = Math.round(h.getBoundingClientRect().width);
+    });
+    const startWidth = widths[prop];
+    const apply = () => {
+      this.root.querySelectorAll<HTMLElement>("col[data-prop]").forEach((c) => {
+        const w = widths[c.dataset.prop!];
+        if (w) c.style.width = `${w}px`;
+      });
+      const total = Object.values(widths).reduce((a, b) => a + b, 0);
+      this.root.querySelectorAll<HTMLElement>(".split-groups-table").forEach((t) => (t.style.width = `${total}px`));
+    };
+    apply();
+    const move = (e: PointerEvent) => {
+      widths[prop] = Math.max(48, Math.round(startWidth + e.clientX - startX));
+      apply();
+    };
+    const end = () => {
+      win.removeEventListener("pointermove", move);
+      win.removeEventListener("pointerup", end);
+      win.removeEventListener("pointercancel", end);
+      this.config.set("columnSize", { ...savedWidths(this.config.get("columnSize")), ...widths });
+    };
+    win.addEventListener("pointermove", move);
+    win.addEventListener("pointerup", end);
+    win.addEventListener("pointercancel", end);
   }
 
   private renderEntry(list: HTMLElement, entry: BasesEntry, columns: BasesPropertyId[]) {

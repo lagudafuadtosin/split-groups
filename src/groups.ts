@@ -66,3 +66,23 @@ export function splitIntoGroups<T>(
     return reverse ? -cmp : cmp;
   });
 }
+
+export const NAME_COLUMN = "file.name";
+
+// Table columns in the order set under Properties, with the note name wherever
+// it is placed there. If the name is not listed, it goes first so every row
+// still has its link.
+export function tableColumns<P extends string>(order: P[]): P[] {
+  return order.includes(NAME_COLUMN as P) ? [...order] : [NAME_COLUMN as P, ...order];
+}
+
+// Column widths saved by a Bases view under "columnSize", as whole pixels per
+// property. Anything that is not a positive number is left out.
+export function savedWidths(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) out[k] = Math.round(v);
+  }
+  return out;
+}

@@ -82,3 +82,37 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+/* Drag the right edge of a header to resize that column in every group. */
+.split-groups-table th {
+  position: relative;
+}
+
+.split-groups-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 1;
+}
+
+/* A thin line always marks where each column can be dragged. */
+.split-groups-resize::after {
+  content: "";
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  right: 0;
+  width: 2px;
+  border-radius: 1px;
+  background-color: var(--background-modifier-border);
+}
+
+.split-groups-resize:hover::after {
+  top: 0;
+  bottom: 0;
+  background-color: var(--interactive-accent);
+}
