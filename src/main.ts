@@ -1,4 +1,4 @@
-import { BasesEntry, BasesPropertyId, BasesView, HoverParent, HoverPopover, Keymap, Plugin, QueryController, Value, setIcon } from "obsidian";
+import { BasesAllOptions, BasesEntry, BasesPropertyId, BasesView, HoverParent, HoverPopover, Keymap, Plugin, QueryController, Value, setIcon } from "obsidian";
 import { splitIntoGroups, cleanValue, tableColumns, savedWidths, NAME_COLUMN, NO_VALUE_KEY, frontmatterKey, addValue } from "./groups";
 
 // Split Groups: a Bases view where a note shows up under EVERY value of a list
@@ -12,10 +12,10 @@ export default class SplitGroupsPlugin extends Plugin {
       name: "Split groups",
       icon: "layout-list",
       factory: (controller, containerEl) => new SplitGroupsView(controller, containerEl),
-      options: () => [
+      options: (): BasesAllOptions[] => [
         { type: "property", key: "splitBy", displayName: "Split by" },
-        { type: "dropdown", key: "sortOrder", displayName: "Sort", default: "asc", options: { asc: "A → Z", desc: "Z → A" } as Record<string, string> },
-        { type: "dropdown", key: "layout", displayName: "Layout", default: "table", options: { table: "Table", list: "List" } as Record<string, string> },
+        { type: "dropdown", key: "sortOrder", displayName: "Sort", default: "asc", options: { asc: "A → Z", desc: "Z → A" } },
+        { type: "dropdown", key: "layout", displayName: "Layout", default: "table", options: { table: "Table", list: "List" } },
         { type: "toggle", key: "showNoValue", displayName: "Show notes with no value", default: true },
       ],
     });
@@ -137,11 +137,11 @@ class SplitGroupsView extends BasesView implements HoverParent {
     const others = columns.length - 1;
     for (const p of columns) {
       const col = cols.createEl("col", { attr: { "data-prop": p } });
-      if (sizes[p] !== undefined) col.style.width = `${sizes[p]}px`;
-      else if (others === 0) col.style.width = "100%";
-      else col.style.width = p === NAME_COLUMN ? "40%" : `${60 / others}%`;
+      if (sizes[p] !== undefined) col.setCssStyles({ width: `${sizes[p]}px` });
+      else if (others === 0) col.setCssStyles({ width: "100%" });
+      else col.setCssStyles({ width: p === NAME_COLUMN ? "40%" : `${60 / others}%` });
     }
-    if (allSized) table.style.width = `${columns.reduce((sum, p) => sum + sizes[p], 0)}px`;
+    if (allSized) table.setCssStyles({ width: `${columns.reduce((sum, p) => sum + sizes[p], 0)}px` });
     const head = table.createEl("thead").createEl("tr");
     for (const p of columns) {
       const th = head.createEl("th", { text: this.config.getDisplayName(p), attr: { "data-prop": p } });
@@ -179,10 +179,10 @@ class SplitGroupsView extends BasesView implements HoverParent {
     const apply = () => {
       this.root.querySelectorAll<HTMLElement>("col[data-prop]").forEach((c) => {
         const w = widths[c.dataset.prop!];
-        if (w) c.style.width = `${w}px`;
+        if (w) c.setCssStyles({ width: `${w}px` });
       });
       const total = Object.values(widths).reduce((a, b) => a + b, 0);
-      this.root.querySelectorAll<HTMLElement>(".split-groups-table").forEach((t) => (t.style.width = `${total}px`));
+      this.root.querySelectorAll<HTMLElement>(".split-groups-table").forEach((t) => t.setCssStyles({ width: `${total}px` }));
     };
     apply();
     const move = (e: PointerEvent) => {

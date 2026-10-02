@@ -18,6 +18,7 @@ If you can, reproduce it in `test-vault` first. A note or a `.base` file that sh
 npm install
 npm run build   # type checks, bundles main.js, copies it into test-vault
 npm test        # unit tests for the grouping rules
+npm run lint    # Obsidian's own review rules, the same ones it runs on every release
 ```
 
 Open `test-vault` in Obsidian, turn on Split Groups under Community plugins, and open `Recipes.base` or `Edge.base`. After each build, turn the plugin off and on again to load it. `npm run bulk` adds 3,000 generated notes and `Bulk.base` for a speed check.

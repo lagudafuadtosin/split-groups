@@ -100,6 +100,6 @@ export function frontmatterKey(propertyId: string): string | null {
 // already there (a base's filter may have filled the same property in).
 export function addValue(current: unknown, value: string): unknown {
   if (current === undefined || current === null || current === "") return [value];
-  const list = Array.isArray(current) ? current : [current];
+  const list: unknown[] = Array.isArray(current) ? current : [current];
   return list.some((v) => String(v) === value) ? list : [...list, value];
 }
