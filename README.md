@@ -22,6 +22,8 @@ Group a Base by a list property today and a recipe with `category: [main, side]`
 - Notes with nothing in the property go to **(no value)** at the end. Turn that off with **Show notes with no value**.
 - Groups sort by name, numbers naturally (2 before 10). Notes inside a group keep the Base's own sort.
 - **Sort** in the view options flips group order between A → Z and Z → A. **(no value)** stays last either way.
+- Until a property is chosen under **Split by**, the view shows all its notes in one list.
+- Obsidian's own **Group by** (under Sort) has no effect on a Split groups view. Use **Split by** instead.
 
 If you turn the plugin off, Split groups views show "Unknown view type" until you turn it back on or switch that view to Table. Your notes are never changed.
 

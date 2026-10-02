@@ -60,12 +60,26 @@ class SplitGroupsView extends BasesView implements HoverParent {
     const root = this.root;
     root.empty();
     const prop = this.config.getAsPropertyId("splitBy");
+    const asTable = this.config.get("layout") !== "list";
     if (!prop) {
-      root.createDiv({ cls: "split-groups-hint", text: "Choose a property under \"Split by\" in this view's options." });
+      // Like Table, Cards and List, show the notes straight away, ungrouped,
+      // so a new view does not look broken before a property is chosen.
+      root.createDiv({ cls: "split-groups-hint", text: "Choose a property under \"Split by\" in this view's options to split these notes into groups." });
+      if (this.data.data.length === 0) {
+        root.createDiv({ cls: "split-groups-hint", text: "No notes match this view." });
+        return;
+      }
+      const columns = this.config.getOrder().filter((p) => p !== "file.name");
+      const all = createDiv({ cls: "split-groups-all" });
+      if (asTable) this.renderTable(all, this.data.data, columns);
+      else {
+        const list = all.createDiv({ cls: "split-groups-list" });
+        for (const entry of this.data.data) this.renderEntry(list, entry, columns);
+      }
+      root.appendChild(all);
       return;
     }
     const showNoValue = this.config.get("showNoValue") !== false;
-    const asTable = this.config.get("layout") !== "list";
     // The table keeps the split property as a column so every value stays
     // visible; the list drops it because the group heading already says it.
     const columns = this.config.getOrder().filter((p) => p !== "file.name" && (asTable || p !== prop));
