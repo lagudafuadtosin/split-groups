@@ -116,3 +116,12 @@
   bottom: 0;
   background-color: var(--interactive-accent);
 }
+
+/* "+" on a group heading: a new note with that group's value filled in. */
+.split-groups-new {
+  margin-left: var(--size-4-2);
+  padding: 0 var(--size-2-2);
+  height: auto;
+  vertical-align: middle;
+  color: var(--text-muted);
+}

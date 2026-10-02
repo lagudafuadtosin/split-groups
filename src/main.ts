@@ -1,5 +1,5 @@
-import { BasesEntry, BasesPropertyId, BasesView, HoverParent, HoverPopover, Keymap, Plugin, QueryController, Value } from "obsidian";
-import { splitIntoGroups, cleanValue, tableColumns, savedWidths, NAME_COLUMN } from "./groups";
+import { BasesEntry, BasesPropertyId, BasesView, HoverParent, HoverPopover, Keymap, Plugin, QueryController, Value, setIcon } from "obsidian";
+import { splitIntoGroups, cleanValue, tableColumns, savedWidths, NAME_COLUMN, NO_VALUE_KEY, frontmatterKey, addValue } from "./groups";
 
 // Split Groups: a Bases view where a note shows up under EVERY value of a list
 // property, instead of under one combined group. A recipe with
@@ -91,6 +91,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
       root.createDiv({ cls: "split-groups-hint", text: "No notes match this view." });
       return;
     }
+    const key = frontmatterKey(prop);
     // Built off-DOM and attached once, so a large vault repaints once.
     const frag = createFragment();
     for (const g of groups) {
@@ -99,6 +100,21 @@ class SplitGroupsView extends BasesView implements HoverParent {
       const summary = section.createEl("summary");
       summary.createSpan({ cls: "split-groups-name", text: g.label });
       summary.createSpan({ cls: "split-groups-count", text: String(g.entries.length) });
+      // "+" makes a new note through the base's own new-note flow, with this
+      // group's value already filled in. Only note properties can be written,
+      // and "(no value)" has nothing to fill in.
+      if (key && g.key !== NO_VALUE_KEY) {
+        const add = summary.createEl("button", { cls: "split-groups-new clickable-icon", attr: { "aria-label": `New note in ${g.label}` } });
+        setIcon(add, "plus");
+        add.addEventListener("click", (evt) => {
+          // Inside <summary>, so stop the click from also folding the group.
+          evt.preventDefault();
+          evt.stopPropagation();
+          void this.createFileForView(undefined, (fm: Record<string, unknown>) => {
+            fm[key] = addValue(fm[key], g.raw);
+          });
+        });
+      }
       if (asTable) this.renderTable(section, g.entries, columns);
       else {
         const list = section.createDiv({ cls: "split-groups-list" });

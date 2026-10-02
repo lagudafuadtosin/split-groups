@@ -7,6 +7,9 @@ export const NO_VALUE_LABEL = "(no value)";
 export interface Group<T> {
   key: string;
   label: string;
+  // The value as first written in a note, e.g. "[[Main]]", so a new note in
+  // this group can be given exactly the same value.
+  raw: string;
   entries: T[];
 }
 
@@ -39,9 +42,9 @@ export function splitIntoGroups<T>(
   reverse = false,
 ): Group<T>[] {
   const groups = new Map<string, Group<T>>();
-  const add = (key: string, label: string, item: T) => {
+  const add = (key: string, label: string, raw: string, item: T) => {
     let g = groups.get(key);
-    if (!g) groups.set(key, (g = { key, label, entries: [] }));
+    if (!g) groups.set(key, (g = { key, label, raw, entries: [] }));
     g.entries.push(item);
   };
   for (const item of items) {
@@ -52,9 +55,9 @@ export function splitIntoGroups<T>(
       const key = groupKey(label);
       if (seen.has(key)) continue; // [main, Main] puts a note in "main" once
       seen.add(key);
-      add(key, label, item);
+      add(key, label, raw.trim(), item);
     }
-    if (seen.size === 0 && showNoValue) add(NO_VALUE_KEY, NO_VALUE_LABEL, item);
+    if (seen.size === 0 && showNoValue) add(NO_VALUE_KEY, NO_VALUE_LABEL, "", item);
   }
   // Notes keep the order Bases sorted them in.
   // Groups sort by name, numbers naturally (2 before 10); flipped by `reverse`.
@@ -85,4 +88,18 @@ export function savedWidths(raw: unknown): Record<string, number> {
     if (typeof v === "number" && Number.isFinite(v) && v > 0) out[k] = Math.round(v);
   }
   return out;
+}
+
+// The frontmatter key behind a Bases property id: "note.category" is
+// "category". File and formula properties cannot be written, so null.
+export function frontmatterKey(propertyId: string): string | null {
+  return propertyId.startsWith("note.") ? propertyId.slice(5) : null;
+}
+
+// Adds a group's value to a note's frontmatter without dropping what is
+// already there (a base's filter may have filled the same property in).
+export function addValue(current: unknown, value: string): unknown {
+  if (current === undefined || current === null || current === "") return [value];
+  const list = Array.isArray(current) ? current : [current];
+  return list.some((v) => String(v) === value) ? list : [...list, value];
 }

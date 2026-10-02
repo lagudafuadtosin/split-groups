@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanValue, splitIntoGroups, NO_VALUE_LABEL, tableColumns, savedWidths } from "../src/groups";
+import { cleanValue, splitIntoGroups, NO_VALUE_LABEL, tableColumns, savedWidths, frontmatterKey, addValue } from "../src/groups";
 
 type Note = { name: string; values: string[] };
 const run = (notes: Note[], showNoValue = true, reverse = false) =>
@@ -84,4 +84,22 @@ test("saved widths keep only positive numbers", () => {
   assert.deepEqual(savedWidths({ "file.name": 220.4, "note.time": 0, "note.category": "wide", "note.x": -5 }), { "file.name": 220 });
   assert.deepEqual(savedWidths(undefined), {});
   assert.deepEqual(savedWidths("200"), {});
+});
+
+test("each group keeps the value as first written, links included", () => {
+  const g = splitIntoGroups([{ name: "a", values: ["[[Main]]"] }, { name: "b", values: ["main"] }], (n) => n.values, true);
+  assert.equal(g[0].raw, "[[Main]]");
+});
+
+test("only note properties can be written", () => {
+  assert.equal(frontmatterKey("note.category"), "category");
+  assert.equal(frontmatterKey("file.name"), null);
+  assert.equal(frontmatterKey("formula.x"), null);
+});
+
+test("a new note's value is added to what the base already filled in", () => {
+  assert.deepEqual(addValue(undefined, "snack"), ["snack"]);
+  assert.deepEqual(addValue(["probe"], "snack"), ["probe", "snack"]);
+  assert.deepEqual(addValue("probe", "snack"), ["probe", "snack"]);
+  assert.deepEqual(addValue(["snack"], "snack"), ["snack"]);
 });
