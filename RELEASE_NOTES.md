@@ -1,1 +1,1 @@
-A Sort option flips the group order between A to Z and Z to A, with (no value) always last (thanks to @melodysium, #1). A new Split groups view now shows all its notes until a property is chosen under Split by, and the README says Obsidian's own Group by has no effect on it (#2).
+In the table layout, the note name column now follows the order set under Properties, and columns can be resized by dragging the line at the edge of a header. Widths are saved with the view, and widths set in a Table view carry over (#2).
