@@ -1,4 +1,5 @@
 ---
+diet: [vegan]
 category: [main, side]
 time: 60
 ---

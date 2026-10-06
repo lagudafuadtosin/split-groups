@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanValue, splitIntoGroups, NO_VALUE_LABEL, tableColumns, savedWidths, frontmatterKey, addValue } from "../src/groups";
+import { cleanValue, splitIntoGroups, NO_VALUE_LABEL, tableColumns, savedWidths, frontmatterKey, addValue, toOrder, groupPath, savedFolded } from "../src/groups";
 
 type Note = { name: string; values: string[] };
 const run = (notes: Note[], showNoValue = true, reverse = false) =>
@@ -102,4 +102,40 @@ test("a new note's value is added to what the base already filled in", () => {
   assert.deepEqual(addValue(["probe"], "snack"), ["probe", "snack"]);
   assert.deepEqual(addValue("probe", "snack"), ["probe", "snack"]);
   assert.deepEqual(addValue(["snack"], "snack"), ["snack"]);
+});
+
+const notes3 = [
+  { name: "a", values: ["fiction"] },
+  { name: "b", values: ["fiction", "poetry"] },
+  { name: "c", values: ["fiction"] },
+  { name: "d", values: ["history", "poetry"] },
+  { name: "e", values: [] },
+];
+const order = (o: "asc" | "desc" | "most" | "fewest") => splitIntoGroups(notes3, (n) => n.values, true, o).map((g) => g.label);
+
+test("groups sort by size, biggest first, names breaking ties, no value last", () => {
+  assert.deepEqual(order("most"), ["fiction", "poetry", "history", "(no value)"]);
+});
+
+test("groups sort by size, smallest first, no value still last", () => {
+  assert.deepEqual(order("fewest"), ["history", "poetry", "fiction", "(no value)"]);
+});
+
+test("name order still works, and the old true/false flag still means Z to A / A to Z", () => {
+  assert.deepEqual(order("asc"), ["fiction", "history", "poetry", "(no value)"]);
+  assert.deepEqual(order("desc"), ["poetry", "history", "fiction", "(no value)"]);
+  assert.deepEqual(splitIntoGroups(notes3, (n) => n.values, true, true).map((g) => g.label), order("desc"));
+});
+
+test("an unknown sort option falls back to A to Z", () => {
+  assert.equal(toOrder("most"), "most");
+  assert.equal(toOrder("sideways"), "asc");
+  assert.equal(toOrder(undefined), "asc");
+});
+
+test("folded groups are remembered by path, junk ignored", () => {
+  assert.equal(groupPath("fiction"), "fiction");
+  assert.equal(groupPath("fiction", "read"), "fiction/read");
+  assert.deepEqual([...savedFolded(["fiction", 3, "fiction/read", null])], ["fiction", "fiction/read"]);
+  assert.equal(savedFolded("nope").size, 0);
 });

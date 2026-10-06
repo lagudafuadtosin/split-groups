@@ -1,5 +1,5 @@
 import { BasesAllOptions, BasesEntry, BasesPropertyId, BasesView, HoverParent, HoverPopover, Keymap, Plugin, QueryController, Value, setIcon } from "obsidian";
-import { splitIntoGroups, cleanValue, tableColumns, savedWidths, NAME_COLUMN, NO_VALUE_KEY, frontmatterKey, addValue } from "./groups";
+import { splitIntoGroups, cleanValue, tableColumns, savedWidths, NAME_COLUMN, NO_VALUE_KEY, frontmatterKey, addValue, toOrder, groupPath, savedFolded, type Group } from "./groups";
 
 // Split Groups: a Bases view where a note shows up under EVERY value of a list
 // property, instead of under one combined group. A recipe with
@@ -14,7 +14,14 @@ export default class SplitGroupsPlugin extends Plugin {
       factory: (controller, containerEl) => new SplitGroupsView(controller, containerEl),
       options: (): BasesAllOptions[] => [
         { type: "property", key: "splitBy", displayName: "Split by" },
-        { type: "dropdown", key: "sortOrder", displayName: "Sort", default: "asc", options: { asc: "A → Z", desc: "Z → A" } },
+        { type: "property", key: "thenSplitBy", displayName: "Then split by" },
+        {
+          type: "dropdown",
+          key: "sortOrder",
+          displayName: "Sort groups",
+          default: "asc",
+          options: { asc: "A → Z", desc: "Z → A", most: "Most notes first", fewest: "Fewest notes first" },
+        },
         { type: "dropdown", key: "layout", displayName: "Layout", default: "table", options: { table: "Table", list: "List" } },
         { type: "toggle", key: "showNoValue", displayName: "Show notes with no value", default: true },
       ],
@@ -85,43 +92,102 @@ class SplitGroupsView extends BasesView implements HoverParent {
     const columns = asTable
       ? tableColumns(this.config.getOrder())
       : this.config.getOrder().filter((p) => p !== "file.name" && p !== prop);
-    const reverse = this.config.get("sortOrder") === "desc";
-    const groups = splitIntoGroups(this.data.data, (e) => rawStrings(e.getValue(prop)), showNoValue, reverse);
+    const order = toOrder(this.config.get("sortOrder"));
+    const valuesOf = (p: BasesPropertyId) => (e: BasesEntry) => rawStrings(e.getValue(p));
+    const groups = splitIntoGroups(this.data.data, valuesOf(prop), showNoValue, order);
     if (groups.length === 0) {
       root.createDiv({ cls: "split-groups-hint", text: "No notes match this view." });
       return;
     }
+    // A second split inside each group, if one is chosen (and it is not the same property).
+    const subProp = this.config.getAsPropertyId("thenSplitBy");
+    const sub = subProp && subProp !== prop ? subProp : null;
+    const subColumns = sub && !asTable ? columns.filter((p) => p !== sub) : columns;
     const key = frontmatterKey(prop);
+    const subKey = sub ? frontmatterKey(sub) : null;
+    const folded = savedFolded(this.config.get("folded"));
+    const paths: string[] = [];
+
     // Built off-DOM and attached once, so a large vault repaints once.
     const frag = createFragment();
+    const bar = frag.createDiv({ cls: "split-groups-bar" });
+    const foldAll = bar.createEl("button", { cls: "split-groups-fold-all", text: "Collapse all" });
+    const openAll = bar.createEl("button", { cls: "split-groups-fold-all", text: "Expand all" });
+    foldAll.addEventListener("click", () => this.saveFolded(new Set(paths)));
+    openAll.addEventListener("click", () => this.saveFolded(new Set()));
+
     for (const g of groups) {
-      const section = frag.createEl("details", { cls: "split-groups-group" });
-      section.open = true;
-      const summary = section.createEl("summary");
-      summary.createSpan({ cls: "split-groups-name", text: g.label });
-      summary.createSpan({ cls: "split-groups-count", text: String(g.entries.length) });
-      // "+" makes a new note through the base's own new-note flow, with this
-      // group's value already filled in. Only note properties can be written,
-      // and "(no value)" has nothing to fill in.
-      if (key && g.key !== NO_VALUE_KEY) {
-        const add = summary.createEl("button", { cls: "split-groups-new clickable-icon", attr: { "aria-label": `New note in ${g.label}` } });
-        setIcon(add, "plus");
-        add.addEventListener("click", (evt) => {
-          // Inside <summary>, so stop the click from also folding the group.
-          evt.preventDefault();
-          evt.stopPropagation();
-          void this.createFileForView(undefined, (fm: Record<string, unknown>) => {
-            fm[key] = addValue(fm[key], g.raw);
-          });
-        });
+      const path = groupPath(g.key);
+      paths.push(path);
+      const section = this.groupSection(frag, g, path, folded, "split-groups-group", (fm) => {
+        if (key) fm[key] = addValue(fm[key], g.raw);
+      }, !!key && g.key !== NO_VALUE_KEY);
+      if (!sub) {
+        this.renderEntries(section, g.entries, columns, asTable);
+        continue;
       }
-      if (asTable) this.renderTable(section, g.entries, columns);
-      else {
-        const list = section.createDiv({ cls: "split-groups-list" });
-        for (const entry of g.entries) this.renderEntry(list, entry, columns);
+      for (const s2 of splitIntoGroups(g.entries, valuesOf(sub), showNoValue, order)) {
+        const subPath = groupPath(g.key, s2.key);
+        paths.push(subPath);
+        const inner = this.groupSection(section, s2, subPath, folded, "split-groups-subgroup", (fm) => {
+          if (key && g.key !== NO_VALUE_KEY) fm[key] = addValue(fm[key], g.raw);
+          if (subKey) fm[subKey] = addValue(fm[subKey], s2.raw);
+        }, !!key && !!subKey && g.key !== NO_VALUE_KEY && s2.key !== NO_VALUE_KEY);
+        this.renderEntries(inner, s2.entries, subColumns, asTable);
       }
     }
     root.appendChild(frag);
+  }
+
+  // One group (or sub-group) heading: its name, its count and a "+" for a new note
+  // with its value(s) filled in. Whether it is folded is remembered with the view.
+  private groupSection(
+    parent: DocumentFragment | HTMLElement,
+    g: Group<BasesEntry>,
+    path: string,
+    folded: Set<string>,
+    cls: string,
+    fill: (fm: Record<string, unknown>) => void,
+    canAdd: boolean,
+  ): HTMLElement {
+    const section = parent.createEl("details", { cls });
+    section.open = !folded.has(path);
+    // Saved only when the person folds or opens it, not when it is drawn
+    section.addEventListener("toggle", () => {
+      const now = savedFolded(this.config.get("folded"));
+      if (section.open === !now.has(path)) return;
+      if (section.open) now.delete(path);
+      else now.add(path);
+      this.saveFolded(now);
+    });
+    const summary = section.createEl("summary");
+    summary.createSpan({ cls: "split-groups-name", text: g.label });
+    summary.createSpan({ cls: "split-groups-count", text: String(g.entries.length) });
+    if (canAdd) {
+      const add = summary.createEl("button", { cls: "split-groups-new clickable-icon", attr: { "aria-label": `New note in ${g.label}` } });
+      setIcon(add, "plus");
+      add.addEventListener("click", (evt) => {
+        // Inside <summary>, so stop the click from also folding the group.
+        evt.preventDefault();
+        evt.stopPropagation();
+        void this.createFileForView(undefined, fill);
+      });
+    }
+    return section;
+  }
+
+  private saveFolded(paths: Set<string>) {
+    this.config.set("folded", [...paths].sort());
+    // Redrawn straight away so Collapse all / Expand all show at once
+    this.render();
+  }
+
+  private renderEntries(section: HTMLElement, entries: BasesEntry[], columns: BasesPropertyId[], asTable: boolean) {
+    if (asTable) this.renderTable(section, entries, columns);
+    else {
+      const list = section.createDiv({ cls: "split-groups-list" });
+      for (const entry of entries) this.renderEntry(list, entry, columns);
+    }
   }
 
   private renderTable(section: HTMLElement, entries: BasesEntry[], columns: BasesPropertyId[]) {

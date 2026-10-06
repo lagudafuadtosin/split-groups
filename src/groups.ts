@@ -35,12 +35,20 @@ export function groupKey(label: string): string {
   return label.normalize("NFKC").toLocaleLowerCase();
 }
 
+// How groups are ordered: by name A to Z or Z to A, or by how many notes they hold.
+export type GroupOrder = "asc" | "desc" | "most" | "fewest";
+
+export function toOrder(raw: unknown): GroupOrder {
+  return raw === "desc" || raw === "most" || raw === "fewest" ? raw : "asc";
+}
+
 export function splitIntoGroups<T>(
   items: T[],
   valuesOf: (item: T) => string[],
   showNoValue: boolean,
-  reverse = false,
+  order: GroupOrder | boolean = "asc", // true and false are the old reverse flag
 ): Group<T>[] {
+  const how: GroupOrder = order === true ? "desc" : order === false ? "asc" : order;
   const groups = new Map<string, Group<T>>();
   const add = (key: string, label: string, raw: string, item: T) => {
     let g = groups.get(key);
@@ -60,13 +68,15 @@ export function splitIntoGroups<T>(
     if (seen.size === 0 && showNoValue) add(NO_VALUE_KEY, NO_VALUE_LABEL, "", item);
   }
   // Notes keep the order Bases sorted them in.
-  // Groups sort by name, numbers naturally (2 before 10); flipped by `reverse`.
-  // "(no value)" is always last.
+  // Groups sort by name, numbers naturally (2 before 10), or by size with the
+  // name breaking ties. "(no value)" is always last.
   return [...groups.values()].sort((a, b) => {
     if (a.key === NO_VALUE_KEY) return 1;
     if (b.key === NO_VALUE_KEY) return -1;
-    const cmp = a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" });
-    return reverse ? -cmp : cmp;
+    const byName = a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" });
+    if (how === "most") return b.entries.length - a.entries.length || byName;
+    if (how === "fewest") return a.entries.length - b.entries.length || byName;
+    return how === "desc" ? -byName : byName;
   });
 }
 
@@ -102,4 +112,16 @@ export function addValue(current: unknown, value: string): unknown {
   if (current === undefined || current === null || current === "") return [value];
   const list: unknown[] = Array.isArray(current) ? current : [current];
   return list.some((v) => String(v) === value) ? list : [...list, value];
+}
+
+// Where a group sits, for remembering which ones are folded: "main" for a group,
+// "main/quick" for a sub-group inside it.
+export function groupPath(key: string, subKey?: string): string {
+  return subKey === undefined ? key : `${key}/${subKey}`;
+}
+
+// The folded groups saved with a view, as a set. Anything that is not a list of
+// strings is ignored.
+export function savedFolded(raw: unknown): Set<string> {
+  return new Set(Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []);
 }

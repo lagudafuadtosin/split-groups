@@ -1,4 +1,5 @@
 ---
+diet: [meat]
 category: [main, starter]
 time: 45
 ---

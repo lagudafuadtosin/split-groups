@@ -1,4 +1,5 @@
 ---
+diet: [vegetarian]
 category: [side]
 time: 90
 ---

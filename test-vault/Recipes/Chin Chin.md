@@ -1,4 +1,5 @@
 ---
+diet: [vegetarian]
 category: [snack]
 time: 50
 ---

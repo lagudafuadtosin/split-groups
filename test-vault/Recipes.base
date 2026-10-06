@@ -3,6 +3,16 @@ filters:
     - file.inFolder("Recipes")
 views:
   - type: split-groups
+    name: Category then diet
+    order:
+      - file.name
+      - diet
+      - time
+    splitBy: note.category
+    thenSplitBy: note.diet
+    sortOrder: most
+    folded: []
+  - type: split-groups
     name: Split groups
     order:
       - file.name
@@ -16,6 +26,7 @@ views:
       - time
     splitBy: note.category
     layout: list
+    folded: []
   - type: table
     name: Built-in table grouped by category
     groupBy:

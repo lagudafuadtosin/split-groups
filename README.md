@@ -11,6 +11,7 @@ Group a Base by a list property today and a recipe with `category: [main, side]`
 1. Open a Base, open the view menu and add a view of type **Split groups**.
 2. In the view options, set **Split by** to the list property to group on.
 3. Pick **Table** or **List** under **Layout**. Columns come from the view's properties, as in any Base.
+4. Optional: set **Then split by** to a second list property, and every group splits again inside (for example Genre, then Status).
 
 ## How values are grouped
 
@@ -21,7 +22,9 @@ Group a Base by a list property today and a recipe with `category: [main, side]`
 - The same value twice in one note counts once.
 - Notes with nothing in the property go to **(no value)** at the end. Turn that off with **Show notes with no value**.
 - Groups sort by name, numbers naturally (2 before 10). Notes inside a group keep the Base's own sort.
-- **Sort** in the view options flips group order between A → Z and Z → A. **(no value)** stays last either way.
+- **Sort groups** in the view options: A → Z, Z → A, **Most notes first** or **Fewest notes first** (ties go by name). **(no value)** stays last either way.
+- Click a group's heading to fold it. Folded groups stay folded when notes change, and each view remembers its own. **Collapse all** and **Expand all** sit above the groups.
+- The **+** on a heading makes a new note with that group's value filled in. On a sub-group it fills in both values.
 - Until a property is chosen under **Split by**, the view shows all its notes in one list.
 - Obsidian's own **Group by** (under Sort) has no effect on a Split groups view. Use **Split by** instead.
 

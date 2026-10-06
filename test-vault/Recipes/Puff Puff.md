@@ -1,4 +1,5 @@
 ---
+diet: [vegan]
 category: [snack, dessert]
 time: 40
 ---
