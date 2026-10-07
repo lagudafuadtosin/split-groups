@@ -4,7 +4,7 @@ A view for Obsidian Bases that puts a note in **every** group its list property 
 
 Group a Base by a list property today and a recipe with `category: [main, side]` lands in one combined group called "main, side". With Split Groups it appears under **main** and again under **side**, which is what most people expect. This is the behaviour asked for in the forum thread [Make a note fall into multiple groups](https://forum.obsidian.md/t/bases-group-by-sorting-improvement-make-a-note-fall-into-multiple-groups/107097).
 
-![Obsidian's own grouping puts Jollof Rice in one "main side" group; Split Groups shows it under main and again under side](docs/demo.gif)
+![Obsidian's own grouping puts Jollof Rice in one "main side" group. Split Groups shows it under main and again under side, then splits each group again by diet, folds a group, and collapses and expands them all](docs/demo.gif)
 
 ## Use it
 
