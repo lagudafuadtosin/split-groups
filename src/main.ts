@@ -86,7 +86,9 @@ export default class SplitGroupsPlugin extends Plugin {
       });
       return;
     }
-    const filled = fillPlaceholders(text, file.basename, (fmt) => moment().format(fmt));
+    // Typed here so the check holds where moment's own types are not installed
+    const now = moment as unknown as () => { format(fmt: string): string };
+    const filled = fillPlaceholders(text, file.basename, (fmt) => now().format(fmt));
     const { yaml, body } = splitFrontmatter(filled);
     const props = yaml ? withoutKeys((parseYaml(yaml) as Record<string, unknown> | null) ?? {}, p.keys) : {};
     await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
