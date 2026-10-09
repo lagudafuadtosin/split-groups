@@ -1,1 +1,1 @@
-Fixes the three review warnings on 0.3.0 (unsafe call, member access and return on the date format for {{date}} and {{time}} in templates). Nothing else changes. Needs Obsidian 1.10.2 or later.
+The toolbar's New button in a Split groups view now uses the view's template too (Template for +), just like the + on a group heading, without a group value. New in Table, Cards and List views is not changed. Needs Obsidian 1.10.2 or later.

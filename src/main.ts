@@ -27,6 +27,7 @@ interface TemplaterApi {
 
 export default class SplitGroupsPlugin extends Plugin {
   pending: Pending | null = null;
+  views = new Set<SplitGroupsView>();
 
   async onload() {
     this.registerBasesView(VIEW_TYPE, {
@@ -48,6 +49,16 @@ export default class SplitGroupsPlugin extends Plugin {
         { type: "file", key: "template", displayName: "Template for +", placeholder: "None", filter: (f) => f.extension === "md" },
       ],
     });
+    // The toolbar's New in a Split groups view uses the view's template too.
+    // Watched in the capture phase, so it is seen before the base makes the note.
+    const onNew = (evt: Event) => {
+      const target = evt.target instanceof Element ? evt.target : null;
+      if (!target?.closest(".bases-toolbar-new-item-menu")) return;
+      if (evt instanceof KeyboardEvent && evt.key !== "Enter" && evt.key !== " ") return;
+      for (const view of this.views) if (view.owns(target)) view.newFromToolbar();
+    };
+    this.registerDomEvent(activeDocument, "pointerdown", onNew, { capture: true });
+    this.registerDomEvent(activeDocument, "keydown", onNew, { capture: true });
     this.app.workspace.onLayoutReady(() => {
       this.registerEvent(this.app.vault.on("create", (file) => {
         if (file instanceof TFile && file.extension === "md") void this.onCreate(file);
@@ -127,6 +138,23 @@ class SplitGroupsView extends BasesView implements HoverParent {
   constructor(controller: QueryController, containerEl: HTMLElement, private plugin: SplitGroupsPlugin) {
     super(controller);
     this.root = containerEl.createDiv({ cls: "split-groups" });
+    plugin.views.add(this);
+  }
+
+  onunload(): void {
+    this.plugin.views.delete(this);
+  }
+
+  // Whether this view is the one showing in the tab that holds `el`
+  owns(el: Element): boolean {
+    const tab = this.root.closest(".workspace-leaf-content");
+    return this.root.isConnected && !!tab && tab.contains(el);
+  }
+
+  // The toolbar's New: the view's template, with no group value to fill in
+  newFromToolbar() {
+    const template = this.templateFile();
+    if (template) this.plugin.pending = { template, keys: [], fill: () => {}, at: Date.now() };
   }
 
   onDataUpdated(): void {

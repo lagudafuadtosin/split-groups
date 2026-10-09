@@ -1,6 +1,6 @@
 {
   "name": "split-groups",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "An Obsidian Bases view that puts a note in every group its list property names.",
   "main": "main.js",
   "scripts": {

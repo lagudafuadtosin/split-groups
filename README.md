@@ -12,7 +12,7 @@ Group a Base by a list property today and a recipe with `category: [main, side]`
 2. In the view options, set **Split by** to the list property to group on.
 3. Pick **Table** or **List** under **Layout**. Columns come from the view's properties, as in any Base.
 4. Optional: set **Then split by** to a second list property, and every group splits again inside (for example Genre, then Status).
-5. Optional: pick a note under **Template for +**, and the **+** on a group heading makes each new note from it.
+5. Optional: pick a note under **Template for +**, and new notes made in this view (with a group's **+** or the toolbar's **New**) start from it.
 
 ## How values are grouped
 
@@ -35,14 +35,14 @@ Click a note to open it, Ctrl or Cmd click (or middle click) for a new tab, and 
 
 ## New notes from a template
 
-Pick a note under **Template for +** in the view options. The **+** on a group heading then makes the new note from that template, with the group's value filled in. This is the ask in the forum thread [Bases: New With Template](https://forum.obsidian.md/t/bases-new-with-template-for-new-button/102639), for Split groups views.
+Pick a note under **Template for +** in the view options. The **+** on a group heading then makes the new note from that template, with the group's value filled in. The toolbar's **New** in that view uses the same template, without a group value. This is the ask in the forum thread [Bases: New With Template](https://forum.obsidian.md/t/bases-new-with-template-for-new-button/102639), for Split groups views.
 
 - The template's properties are added to the note. For the property you split by, the group wins: a template with `category: [uncategorised]` under **main** gives `category: [main]`. Values the Base fills in from its filters are kept.
 - The template's body goes in under the properties. `{{title}}`, `{{date}}` and `{{time}}` are filled in like Obsidian's own Templates, and so are `{{date:FORMAT}}` and `{{time:FORMAT}}`.
 - If the template uses Templater (`<% %>`) and Templater is installed, Templater fills it in.
 - Each view has its own template, so one Base can have a different one per view.
-- Obsidian's own **New** button in the toolbar is not changed. Only the **+** on a heading uses the template.
-- If the template note has been moved or deleted, the **+** makes a blank note and says so.
+- Only Split groups views use the template. **New** in a Table, Cards or List view is not changed.
+- If the template note has been moved or deleted, the note is made blank and a message says so.
 
 ## Try it
 
