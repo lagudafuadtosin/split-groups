@@ -46,7 +46,7 @@ export default class SplitGroupsPlugin extends Plugin {
         },
         { type: "dropdown", key: "layout", displayName: "Layout", default: "table", options: { table: "Table", list: "List" } },
         { type: "toggle", key: "showNoValue", displayName: "Show notes with no value", default: true },
-        { type: "file", key: "template", displayName: "Template for +", placeholder: "None", filter: (f) => f.extension === "md" },
+        { type: "file", key: "template", displayName: "Template for new notes", placeholder: "None", filter: (f) => f.extension === "md" },
       ],
     });
     // The toolbar's New in a Split groups view uses the view's template too.
@@ -275,7 +275,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
   }
 
   // A new note with the group's value(s) filled in, made from the view's
-  // template when one is chosen under "Template for +".
+  // template when one is chosen under "Template for new notes".
   private newNote(fill: Fill) {
     const template = this.templateFile();
     if (template) {
