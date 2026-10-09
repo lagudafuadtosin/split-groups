@@ -35,6 +35,8 @@ Click a note to open it, Ctrl or Cmd click (or middle click) for a new tab, and 
 
 ## New notes from a template
 
+![Template for new notes set to Templates/Recipe.md, then the + under main and meat makes a note with category main, diet meat and the template's time, cooked and headings](docs/template.gif)
+
 Pick a note under **Template for new notes** in the view options. The **+** on a group heading then makes the new note from that template, with the group's value filled in. The toolbar's **New** in that view uses the same template, without a group value. This is the ask in the forum thread [Bases: New With Template](https://forum.obsidian.md/t/bases-new-with-template-for-new-button/102639), for Split groups views.
 
 - The template's properties are added to the note. For the property you split by, the group wins: a template with `category: [uncategorised]` under **main** gives `category: [main]`. Values the Base fills in from its filters are kept.
