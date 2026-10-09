@@ -1,12 +1,12 @@
 {
   "name": "split-groups",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "An Obsidian Bases view that puts a note in every group its list property names.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit && node esbuild.config.mjs production",
-    "test": "esbuild test/groups.test.ts --bundle --platform=node --format=esm --outfile=.test-build/groups.test.mjs --log-level=warning && node --test .test-build/groups.test.mjs",
+    "test": "esbuild test/groups.test.ts test/template.test.ts --bundle --platform=node --format=esm --outdir=.test-build --out-extension:.js=.mjs --log-level=warning && node --test .test-build/groups.test.mjs .test-build/template.test.mjs",
     "bulk": "node scripts/make-bulk-notes.mjs",
     "lint": "eslint src"
   },

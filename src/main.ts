@@ -1,17 +1,38 @@
-import { BasesAllOptions, BasesEntry, BasesPropertyId, BasesView, HoverParent, HoverPopover, Keymap, Plugin, QueryController, Value, setIcon } from "obsidian";
+import { BasesAllOptions, BasesEntry, BasesPropertyId, BasesView, HoverParent, HoverPopover, Keymap, Notice, Plugin, QueryController, TFile, Value, moment, parseYaml, setIcon } from "obsidian";
 import { splitIntoGroups, cleanValue, tableColumns, savedWidths, NAME_COLUMN, NO_VALUE_KEY, frontmatterKey, addValue, toOrder, groupPath, savedFolded, type Group } from "./groups";
+import { appendBody, fillPlaceholders, mergeProps, splitFrontmatter, withoutKeys } from "./template";
 
 // Split Groups: a Bases view where a note shows up under EVERY value of a list
 // property, instead of under one combined group. A recipe with
 // `category: [main, side]` appears in "main" and in "side", not in "main, side".
 export const VIEW_TYPE = "split-groups";
 
+type Fill = (fm: Record<string, unknown>) => void;
+
+// A note asked for by a group's + that is to be made from the view's template:
+// the template, the properties the group fills in, and when the + was pressed.
+interface Pending {
+  template: TFile;
+  keys: string[];
+  fill: Fill;
+  at: number;
+}
+
+// A note made within this many milliseconds of the + counts as made by it.
+const WINDOW = 3000;
+
+interface TemplaterApi {
+  write_template_to_file(template: TFile, file: TFile): Promise<void>;
+}
+
 export default class SplitGroupsPlugin extends Plugin {
+  pending: Pending | null = null;
+
   async onload() {
     this.registerBasesView(VIEW_TYPE, {
       name: "Split groups",
       icon: "layout-list",
-      factory: (controller, containerEl) => new SplitGroupsView(controller, containerEl),
+      factory: (controller, containerEl) => new SplitGroupsView(controller, containerEl, this),
       options: (): BasesAllOptions[] => [
         { type: "property", key: "splitBy", displayName: "Split by" },
         { type: "property", key: "thenSplitBy", displayName: "Then split by" },
@@ -24,8 +45,55 @@ export default class SplitGroupsPlugin extends Plugin {
         },
         { type: "dropdown", key: "layout", displayName: "Layout", default: "table", options: { table: "Table", list: "List" } },
         { type: "toggle", key: "showNoValue", displayName: "Show notes with no value", default: true },
+        { type: "file", key: "template", displayName: "Template for +", placeholder: "None", filter: (f) => f.extension === "md" },
       ],
     });
+    this.app.workspace.onLayoutReady(() => {
+      this.registerEvent(this.app.vault.on("create", (file) => {
+        if (file instanceof TFile && file.extension === "md") void this.onCreate(file);
+      }));
+    });
+  }
+
+  private async onCreate(file: TFile) {
+    const p = this.pending;
+    if (!p || Date.now() - p.at > WINDOW) return;
+    // Only a brand new note: anything that already has a body was not made by the +
+    if (splitFrontmatter(await this.app.vault.read(file)).body.trim()) return;
+    this.pending = null; // one note per click
+    try {
+      await this.applyTemplate(p, file);
+    } catch (err) {
+      new Notice(`Split Groups could not fill in ${file.basename} from ${p.template.basename}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // The template's properties and body go into the new note. The group's own
+  // values win over the template's, and values the base fills in are kept.
+  private async applyTemplate(p: Pending, file: TFile) {
+    const text = await this.app.vault.read(p.template);
+    // Templater syntax goes to Templater when it is installed; the note's own values are put back after.
+    const plugins = (this.app as unknown as { plugins: { getPlugin(id: string): unknown } }).plugins;
+    const templater = (plugins.getPlugin("templater-obsidian") as { templater?: TemplaterApi } | null)?.templater;
+    if (text.includes("<%") && templater?.write_template_to_file) {
+      const before = splitFrontmatter(await this.app.vault.read(file)).yaml;
+      const kept = before ? (parseYaml(before) as Record<string, unknown> | null) ?? {} : {};
+      await templater.write_template_to_file(p.template, file);
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+        for (const k of p.keys) delete fm[k];
+        Object.assign(fm, mergeProps(kept, fm));
+        p.fill(fm);
+      });
+      return;
+    }
+    const filled = fillPlaceholders(text, file.basename, (fmt) => moment().format(fmt));
+    const { yaml, body } = splitFrontmatter(filled);
+    const props = yaml ? withoutKeys((parseYaml(yaml) as Record<string, unknown> | null) ?? {}, p.keys) : {};
+    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      Object.assign(fm, mergeProps(fm, props));
+      p.fill(fm);
+    });
+    if (body.trim()) await this.app.vault.process(file, (data) => appendBody(data, body));
   }
 }
 
@@ -54,7 +122,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
   hoverPopover: HoverPopover | null = null;
   private root: HTMLElement;
 
-  constructor(controller: QueryController, containerEl: HTMLElement) {
+  constructor(controller: QueryController, containerEl: HTMLElement, private plugin: SplitGroupsPlugin) {
     super(controller);
     this.root = containerEl.createDiv({ cls: "split-groups" });
   }
@@ -147,7 +215,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
     path: string,
     folded: Set<string>,
     cls: string,
-    fill: (fm: Record<string, unknown>) => void,
+    fill: Fill,
     canAdd: boolean,
   ): HTMLElement {
     const section = parent.createEl("details", { cls });
@@ -170,10 +238,32 @@ class SplitGroupsView extends BasesView implements HoverParent {
         // Inside <summary>, so stop the click from also folding the group.
         evt.preventDefault();
         evt.stopPropagation();
-        void this.createFileForView(undefined, fill);
+        this.newNote(fill);
       });
     }
     return section;
+  }
+
+  // A new note with the group's value(s) filled in, made from the view's
+  // template when one is chosen under "Template for +".
+  private newNote(fill: Fill) {
+    const template = this.templateFile();
+    if (template) {
+      const own: Record<string, unknown> = {};
+      fill(own);
+      this.plugin.pending = { template, keys: Object.keys(own), fill, at: Date.now() };
+    }
+    void this.createFileForView(undefined, fill);
+  }
+
+  private templateFile(): TFile | null {
+    const raw = this.config.get("template");
+    if (typeof raw !== "string" || !raw.trim()) return null;
+    // Saved as a path, or as a [[link]] if typed by hand
+    const path = raw.trim().replace(/^\[\[/, "").replace(/\]\]$/, "").split("|")[0];
+    const file = this.app.vault.getFileByPath(path) ?? this.app.metadataCache.getFirstLinkpathDest(path, "");
+    if (!file) new Notice(`Split Groups: the template ${path} was not found, so the note is blank.`);
+    return file;
   }
 
   private saveFolded(paths: Set<string>) {
@@ -294,6 +384,10 @@ class SplitGroupsView extends BasesView implements HoverParent {
       void this.app.workspace.openLinkText(path, "", Keymap.isModEvent(evt));
     };
     link.addEventListener("click", open);
+    // A middle press on a link without href starts autoscroll, and then no auxclick follows.
+    link.addEventListener("mousedown", (evt) => {
+      if (evt.button === 1) evt.preventDefault();
+    });
     link.addEventListener("auxclick", (evt) => {
       if (evt.button === 1) open(evt);
     });

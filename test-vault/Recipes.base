@@ -12,6 +12,7 @@ views:
     thenSplitBy: note.diet
     sortOrder: most
     folded: []
+    template: Templates/Recipe.md
   - type: split-groups
     name: Split groups
     order:
