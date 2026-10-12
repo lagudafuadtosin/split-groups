@@ -10,7 +10,7 @@ Group a Base by a list property today and a recipe with `category: [main, side]`
 
 1. Open a Base, open the view menu and add a view of type **Split groups**.
 2. In the view options, set **Split by** to the list property to group on.
-3. Pick **Table** or **List** under **Layout**. Columns come from the view's properties, as in any Base.
+3. Pick **Table**, **List**, **Cards** or **Kanban** under **Layout**. Columns come from the view's properties, as in any Base.
 4. Optional: set **Then split by** to a second list property, and every group splits again inside (for example Genre, then Status).
 5. Optional: pick a note under **Template for new notes**, and new notes made in this view (with a group's **+** or the toolbar's **New**) start from it.
 
@@ -29,7 +29,19 @@ Group a Base by a list property today and a recipe with `category: [main, side]`
 - Until a property is chosen under **Split by**, the view shows all its notes in one list.
 - Obsidian's own **Group by** (under Sort) has no effect on a Split groups view. Use **Split by** instead.
 
-If you turn the plugin off, Split groups views show "Unknown view type" until you turn it back on or switch that view to Table. Your notes are never changed.
+If you turn the plugin off, Split groups views show "Unknown view type" until you turn it back on or switch that view to Table. Your notes are never changed, except by a drop in the Kanban layout, which changes only the split property of the note you dropped.
+
+## Cards and Kanban
+
+**Cards** shows every group as a grid of cards. Pick a property under **Image property** and a card shows that note's image at the top: a link or path to a file in the vault, or a web address.
+
+**Kanban** puts every group in its own column, side by side, with the same cards stacked inside. Drag a card to another column and the note's list property changes:
+
+- **Moves it** (the default): the column it came from is swapped for the one it landed on. `[main, side]` dragged from main to dessert becomes `[side, dessert]`.
+- **Adds that group's value, keeps the others**: `[main, side]` becomes `[main, side, dessert]`.
+- **Leaves only that group's value**: `[main, side]` becomes `[dessert]`.
+
+Choose which under **Dropping a card on a group** in the view options. Dropping on **(no value)** takes the value away (or clears the property in the last mode). A short press on a card still opens the note; only a press that moves starts a drag. Cards can be dragged when **Split by** is a note property, since a file or formula property cannot be written. **Then split by** is not used in Kanban. On a phone, drag a card sideways; up and down still scrolls.
 
 Click a note to open it, Ctrl or Cmd click (or middle click) for a new tab, and Ctrl or Cmd hover for a preview.
 

@@ -125,3 +125,33 @@ export function groupPath(key: string, subKey?: string): string {
 export function savedFolded(raw: unknown): Set<string> {
   return new Set(Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []);
 }
+
+// What a drop in the Kanban layout does to the note's list property.
+//   move: the group it came from is swapped for the one it was dropped on
+//   add: the dropped-on group's value is added, the others stay
+//   replace: only the dropped-on group's value is left
+export type DropMode = "move" | "add" | "replace";
+
+export function toDropMode(raw: unknown): DropMode {
+  return raw === "add" || raw === "replace" ? raw : "move";
+}
+
+// The property's new value after a card is dropped on a group. `from` and `to`
+// are group keys (NO_VALUE_KEY for "(no value)"); `toRaw` is the value as a
+// note first wrote it, so the new value matches the group's spelling. A value
+// in the list counts as the source group when it cleans to the same key, so
+// "[[Main]]" and "main" both go when a note leaves Main. Returns the list, or
+// null when nothing changes.
+export function movedValue(current: unknown, from: string, to: string, toRaw: string, mode: DropMode): unknown[] | null {
+  if (from === to) return null;
+  const list: unknown[] = current === undefined || current === null || current === "" ? [] : Array.isArray(current) ? current : [current];
+  const isGroup = (v: unknown, key: string) => key !== NO_VALUE_KEY && groupKey(cleanValue(String(v))) === key;
+  let next: unknown[];
+  if (mode === "replace") next = to === NO_VALUE_KEY ? [] : [toRaw];
+  else {
+    next = mode === "move" ? list.filter((v) => !isGroup(v, from)) : [...list];
+    if (to !== NO_VALUE_KEY && !next.some((v) => isGroup(v, to))) next.push(toRaw);
+  }
+  const same = next.length === list.length && next.every((v, i) => v === list[i]);
+  return same ? null : next;
+}

@@ -1,5 +1,5 @@
 import { BasesAllOptions, BasesEntry, BasesPropertyId, BasesView, HoverParent, HoverPopover, Keymap, Notice, Plugin, QueryController, TFile, Value, moment, parseYaml, setIcon } from "obsidian";
-import { splitIntoGroups, cleanValue, tableColumns, savedWidths, NAME_COLUMN, NO_VALUE_KEY, frontmatterKey, addValue, toOrder, groupPath, savedFolded, type Group } from "./groups";
+import { splitIntoGroups, cleanValue, tableColumns, savedWidths, NAME_COLUMN, NO_VALUE_KEY, frontmatterKey, addValue, toOrder, groupPath, savedFolded, movedValue, toDropMode, type Group } from "./groups";
 import { appendBody, fillPlaceholders, mergeProps, splitFrontmatter, withoutKeys } from "./template";
 
 // Split Groups: a Bases view where a note shows up under EVERY value of a list
@@ -44,7 +44,16 @@ export default class SplitGroupsPlugin extends Plugin {
           default: "asc",
           options: { asc: "A → Z", desc: "Z → A", most: "Most notes first", fewest: "Fewest notes first" },
         },
-        { type: "dropdown", key: "layout", displayName: "Layout", default: "table", options: { table: "Table", list: "List" } },
+        { type: "dropdown", key: "layout", displayName: "Layout", default: "table", options: { table: "Table", list: "List", cards: "Cards", kanban: "Kanban" } },
+        // Cards and Kanban show this property's image at the top of each card
+        { type: "property", key: "image", displayName: "Image property" },
+        {
+          type: "dropdown",
+          key: "onDrop",
+          displayName: "Dropping a card on a group",
+          default: "move",
+          options: { move: "Moves it: that group's value replaces the one it came from", add: "Adds that group's value, keeps the others", replace: "Leaves only that group's value" },
+        },
         { type: "toggle", key: "showNoValue", displayName: "Show notes with no value", default: true },
         { type: "file", key: "template", displayName: "Template for new notes", placeholder: "None", filter: (f) => f.extension === "md" },
       ],
@@ -130,10 +139,35 @@ function cellText(v: Value | null): string {
   return rawStrings(v).map(cleanValue).filter(Boolean).join(", ");
 }
 
+type Layout = "table" | "list" | "cards" | "kanban";
+
+function toLayout(raw: unknown): Layout {
+  return raw === "list" || raw === "cards" || raw === "kanban" ? raw : "table";
+}
+
+// A card being dragged between Kanban columns: which note, which group it
+// left, where the pointer started, and the copy that follows the pointer.
+interface Drag {
+  entry: BasesEntry;
+  from: string;
+  startX: number;
+  startY: number;
+  ghost: HTMLElement | null;
+  over: HTMLElement | null;
+}
+
+// Pointer travel before a press on a card becomes a drag rather than a click
+const DRAG_START = 6;
+
 class SplitGroupsView extends BasesView implements HoverParent {
   type = VIEW_TYPE;
   hoverPopover: HoverPopover | null = null;
   private root: HTMLElement;
+  private drag: Drag | null = null;
+  // Set when a drag ends on a card, so the click that follows does not open the note
+  private dropped = false;
+  // Each Kanban column's group, by key, for the drop that lands on it
+  private columns = new Map<string, Group<BasesEntry>>();
 
   constructor(controller: QueryController, containerEl: HTMLElement, private plugin: SplitGroupsPlugin) {
     super(controller);
@@ -165,7 +199,10 @@ class SplitGroupsView extends BasesView implements HoverParent {
     const root = this.root;
     root.empty();
     const prop = this.config.getAsPropertyId("splitBy");
-    const asTable = this.config.get("layout") !== "list";
+    const layout = toLayout(this.config.get("layout"));
+    const asTable = layout === "table";
+    root.toggleClass("split-groups-kanban", layout === "kanban");
+    this.columns.clear();
     if (!prop) {
       // Like Table, Cards and List, show the notes straight away, ungrouped,
       // so a new view does not look broken before a property is chosen.
@@ -176,11 +213,8 @@ class SplitGroupsView extends BasesView implements HoverParent {
       }
       const columns = this.config.getOrder().filter((p) => p !== "file.name");
       const all = createDiv({ cls: "split-groups-all" });
-      if (asTable) this.renderTable(all, this.data.data, tableColumns(this.config.getOrder()));
-      else {
-        const list = all.createDiv({ cls: "split-groups-list" });
-        for (const entry of this.data.data) this.renderEntry(list, entry, columns);
-      }
+      // Without a property there are no columns, so Kanban shows cards.
+      this.renderEntries(all, this.data.data, asTable ? tableColumns(this.config.getOrder()) : columns, layout === "kanban" ? "cards" : layout, null);
       root.appendChild(all);
       return;
     }
@@ -197,9 +231,10 @@ class SplitGroupsView extends BasesView implements HoverParent {
       root.createDiv({ cls: "split-groups-hint", text: "No notes match this view." });
       return;
     }
-    // A second split inside each group, if one is chosen (and it is not the same property).
+    // A second split inside each group, if one is chosen (and it is not the same
+    // property). Kanban has one column per group and no sub-groups.
     const subProp = this.config.getAsPropertyId("thenSplitBy");
-    const sub = subProp && subProp !== prop ? subProp : null;
+    const sub = subProp && subProp !== prop && layout !== "kanban" ? subProp : null;
     const subColumns = sub && !asTable ? columns.filter((p) => p !== sub) : columns;
     const key = frontmatterKey(prop);
     const subKey = sub ? frontmatterKey(sub) : null;
@@ -213,15 +248,27 @@ class SplitGroupsView extends BasesView implements HoverParent {
     const openAll = bar.createEl("button", { cls: "split-groups-fold-all", text: "Expand all" });
     foldAll.addEventListener("click", () => this.saveFolded(new Set(paths)));
     openAll.addEventListener("click", () => this.saveFolded(new Set()));
+    if (layout === "kanban" && subProp && subProp !== prop) {
+      frag.createDiv({ cls: "split-groups-hint", text: "Then split by is not used in the Kanban layout." });
+    }
+    if (layout === "kanban" && !key) {
+      frag.createDiv({ cls: "split-groups-hint", text: "Cards can be dragged between columns when Split by is a note property." });
+    }
+    // Kanban columns sit side by side in one row
+    const row = layout === "kanban" ? frag.createDiv({ cls: "split-groups-board" }) : frag;
 
     for (const g of groups) {
       const path = groupPath(g.key);
       paths.push(path);
-      const section = this.groupSection(frag, g, path, folded, "split-groups-group", (fm) => {
+      const section = this.groupSection(row, g, path, folded, layout === "kanban" ? "split-groups-group split-groups-column" : "split-groups-group", (fm) => {
         if (key) fm[key] = addValue(fm[key], g.raw);
       }, !!key && g.key !== NO_VALUE_KEY);
+      if (layout === "kanban") {
+        section.dataset.key = g.key;
+        this.columns.set(g.key, g);
+      }
       if (!sub) {
-        this.renderEntries(section, g.entries, columns, asTable);
+        this.renderEntries(section, g.entries, columns, layout, key ? g.key : null);
         continue;
       }
       for (const s2 of splitIntoGroups(g.entries, valuesOf(sub), showNoValue, order)) {
@@ -231,7 +278,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
           if (key && g.key !== NO_VALUE_KEY) fm[key] = addValue(fm[key], g.raw);
           if (subKey) fm[subKey] = addValue(fm[subKey], s2.raw);
         }, !!key && !!subKey && g.key !== NO_VALUE_KEY && s2.key !== NO_VALUE_KEY);
-        this.renderEntries(inner, s2.entries, subColumns, asTable);
+        this.renderEntries(inner, s2.entries, subColumns, layout, null);
       }
     }
     root.appendChild(frag);
@@ -302,11 +349,126 @@ class SplitGroupsView extends BasesView implements HoverParent {
     this.render();
   }
 
-  private renderEntries(section: HTMLElement, entries: BasesEntry[], columns: BasesPropertyId[], asTable: boolean) {
-    if (asTable) this.renderTable(section, entries, columns);
-    else {
+  // `dragFrom` is the group key the cards can be dragged out of (Kanban, when
+  // the split property can be written), or null when they cannot be dragged.
+  private renderEntries(section: HTMLElement, entries: BasesEntry[], columns: BasesPropertyId[], layout: Layout, dragFrom: string | null) {
+    if (layout === "table") this.renderTable(section, entries, columns);
+    else if (layout === "list") {
       const list = section.createDiv({ cls: "split-groups-list" });
       for (const entry of entries) this.renderEntry(list, entry, columns);
+    } else {
+      const grid = section.createDiv({ cls: layout === "kanban" ? "split-groups-stack" : "split-groups-cards" });
+      const image = this.config.getAsPropertyId("image");
+      for (const entry of entries) this.renderCard(grid, entry, columns.filter((p) => p !== image), image, dragFrom);
+    }
+  }
+
+  // One card: the image at the top when the view has an image property and the
+  // note has one, then the name, then the properties that have a value.
+  private renderCard(grid: HTMLElement, entry: BasesEntry, columns: BasesPropertyId[], image: BasesPropertyId | null, dragFrom: string | null) {
+    const card = grid.createDiv({ cls: "split-groups-card" });
+    const src = image ? this.imageSrc(entry, entry.getValue(image)) : null;
+    if (src) card.createDiv({ cls: "split-groups-card-cover" }).createEl("img", { attr: { src, alt: "", loading: "lazy" } });
+    const body = card.createDiv({ cls: "split-groups-card-body" });
+    this.renderLink(body.createDiv({ cls: "split-groups-card-title" }), entry);
+    for (const p of columns) {
+      if (p === NAME_COLUMN) continue;
+      const text = cellText(entry.getValue(p));
+      if (!text) continue;
+      const line = body.createDiv({ cls: "split-groups-card-prop" });
+      line.createSpan({ cls: "split-groups-prop-name", text: this.config.getDisplayName(p) + ": " });
+      line.createSpan({ text });
+    }
+    if (dragFrom !== null) {
+      card.addClass("split-groups-draggable");
+      card.addEventListener("pointerdown", (evt) => this.startDrag(evt, card, entry, dragFrom));
+      // The browser's own drag of the image or the link would cut the pointer events short
+      card.addEventListener("dragstart", (evt) => evt.preventDefault());
+    }
+  }
+
+  // The image behind a property value: a web address as it is, or a link or
+  // path to a file in the vault. Nothing when it points at no file.
+  private imageSrc(entry: BasesEntry, v: Value | null): string | null {
+    const raw = rawStrings(v)[0]?.trim();
+    if (!raw) return null;
+    if (/^https?:\/\//i.test(raw)) return raw;
+    const path = raw.replace(/^!?\[\[/, "").replace(/\]\]$/, "").split("|")[0].split("#")[0].trim();
+    const file = this.app.metadataCache.getFirstLinkpathDest(path, entry.file.path) ?? this.app.vault.getFileByPath(path);
+    return file ? this.app.vault.getResourcePath(file) : null;
+  }
+
+  // A press on a Kanban card. A short press is a click and opens the note as
+  // usual; moving the pointer makes it a drag, with a copy of the card under
+  // the pointer, and the column under the pointer on release gets the note.
+  private startDrag(evt: PointerEvent, card: HTMLElement, entry: BasesEntry, from: string) {
+    if (evt.button !== 0 || this.drag) return;
+    const drag: Drag = { entry, from, startX: evt.clientX, startY: evt.clientY, ghost: null, over: null };
+    this.drag = drag;
+    const win = card.win;
+    const move = (e: PointerEvent) => {
+      if (!drag.ghost) {
+        if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < DRAG_START) return;
+        drag.ghost = this.root.createDiv({ cls: "split-groups-ghost" });
+        drag.ghost.appendChild(card.cloneNode(true));
+        drag.ghost.setCssStyles({ width: `${card.getBoundingClientRect().width}px` });
+        card.addClass("split-groups-drag-source");
+        try {
+          card.setPointerCapture(e.pointerId);
+        } catch { /* a pointer that cannot be captured still drags */ }
+      }
+      drag.ghost.setCssStyles({ left: `${e.clientX + 8}px`, top: `${e.clientY + 8}px` });
+      const el = this.root.doc.elementFromPoint(e.clientX, e.clientY);
+      const column = el?.closest<HTMLElement>(".split-groups-column") ?? null;
+      if (column !== drag.over) {
+        drag.over?.removeClass("split-groups-drop-target");
+        drag.over = column && column.dataset.key !== from ? column : null;
+        drag.over?.addClass("split-groups-drop-target");
+      }
+    };
+    const end = (e: PointerEvent) => {
+      win.removeEventListener("pointermove", move);
+      win.removeEventListener("pointerup", end);
+      win.removeEventListener("pointercancel", cancel);
+      const to = drag.over?.dataset.key;
+      this.endDrag(card, drag);
+      if (e.type === "pointerup" && to !== undefined) {
+        // The release lands on the card too; that click must not open the note
+        this.dropped = true;
+        win.setTimeout(() => (this.dropped = false), 0);
+        void this.drop(entry, from, to);
+      }
+    };
+    const cancel = (e: PointerEvent) => end(e);
+    win.addEventListener("pointermove", move);
+    win.addEventListener("pointerup", end);
+    win.addEventListener("pointercancel", cancel);
+  }
+
+  private endDrag(card: HTMLElement, drag: Drag) {
+    drag.ghost?.remove();
+    drag.over?.removeClass("split-groups-drop-target");
+    card.removeClass("split-groups-drag-source");
+    this.drag = null;
+  }
+
+  // The drop: the note's list property is changed the way "Dropping a card on a
+  // group" says. Only the split property is touched, nothing else in the note.
+  private async drop(entry: BasesEntry, from: string, to: string) {
+    const prop = this.config.getAsPropertyId("splitBy");
+    const key = prop ? frontmatterKey(prop) : null;
+    const target = this.columns.get(to);
+    if (!key || !target) return;
+    const mode = toDropMode(this.config.get("onDrop"));
+    try {
+      await this.app.fileManager.processFrontMatter(entry.file, (fm: Record<string, unknown>) => {
+        const next = movedValue(fm[key], from, to, target.raw, mode);
+        if (!next) return;
+        if (next.length === 0) delete fm[key];
+        else fm[key] = next;
+      });
+    } catch (err) {
+      new Notice(`Split Groups could not change ${entry.file.basename}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -411,6 +573,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
     // new tab, like other links in Obsidian.
     const open = (evt: MouseEvent | KeyboardEvent) => {
       evt.preventDefault();
+      if (this.dropped) return;
       void this.app.workspace.openLinkText(path, "", Keymap.isModEvent(evt));
     };
     link.addEventListener("click", open);

@@ -28,6 +28,24 @@ views:
     splitBy: note.category
     layout: list
     folded: []
+  - type: split-groups
+    name: Kanban
+    order:
+      - file.name
+      - diet
+      - time
+    splitBy: note.category
+    layout: kanban
+    image: note.image
+  - type: split-groups
+    name: Cards
+    order:
+      - file.name
+      - diet
+      - time
+    splitBy: note.category
+    layout: cards
+    image: note.image
   - type: table
     name: Built-in table grouped by category
     groupBy:

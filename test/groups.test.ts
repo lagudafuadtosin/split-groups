@@ -139,3 +139,37 @@ test("folded groups are remembered by path, junk ignored", () => {
   assert.deepEqual([...savedFolded(["fiction", 3, "fiction/read", null])], ["fiction", "fiction/read"]);
   assert.equal(savedFolded("nope").size, 0);
 });
+
+import { movedValue, toDropMode, NO_VALUE_KEY } from "../src/groups";
+
+test("move swaps the source group's value for the target's, keeping the rest", () => {
+  assert.deepEqual(movedValue(["main", "side"], "main", "dessert", "dessert", "move"), ["side", "dessert"]);
+  assert.deepEqual(movedValue(["[[Main]]", "side"], "main", "dessert", "dessert", "move"), ["side", "dessert"]);
+  assert.deepEqual(movedValue("main", "main", "side", "side", "move"), ["side"]);
+});
+
+test("add keeps every value and adds the target once", () => {
+  assert.deepEqual(movedValue(["main"], "main", "side", "side", "add"), ["main", "side"]);
+  assert.equal(movedValue(["main", "Side"], "main", "side", "side", "add"), null);
+});
+
+test("replace leaves only the target value", () => {
+  assert.deepEqual(movedValue(["main", "side"], "main", "dessert", "dessert", "replace"), ["dessert"]);
+});
+
+test("dropping on (no value) removes the source value, or clears it in replace mode", () => {
+  assert.deepEqual(movedValue(["main", "side"], "main", NO_VALUE_KEY, "", "move"), ["side"]);
+  assert.deepEqual(movedValue(["main"], "main", NO_VALUE_KEY, "", "replace"), []);
+  assert.equal(movedValue(["main"], "main", NO_VALUE_KEY, "", "add"), null);
+});
+
+test("dragging out of (no value) adds the target", () => {
+  assert.deepEqual(movedValue(undefined, NO_VALUE_KEY, "main", "main", "move"), ["main"]);
+  assert.deepEqual(movedValue([], NO_VALUE_KEY, "main", "main", "add"), ["main"]);
+});
+
+test("a drop on the same group changes nothing", () => {
+  assert.equal(movedValue(["main"], "main", "main", "main", "move"), null);
+  assert.equal(toDropMode("bogus"), "move");
+  assert.equal(toDropMode("replace"), "replace");
+});
