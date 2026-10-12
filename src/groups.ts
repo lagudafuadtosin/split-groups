@@ -101,9 +101,23 @@ export function savedWidths(raw: unknown): Record<string, number> {
 }
 
 // The frontmatter key behind a Bases property id: "note.category" is
-// "category". File and formula properties cannot be written, so null.
+// "category". A note's tags (file.tags) are written to its "tags" property.
+// Other file properties and formulas cannot be written, so null.
 export function frontmatterKey(propertyId: string): string | null {
+  if (propertyId === "file.tags") return "tags";
   return propertyId.startsWith("note.") ? propertyId.slice(5) : null;
+}
+
+// The value written into a note for a group: the value as first seen, except
+// that a tag goes in without its "#", which is how the tags property is kept.
+export function writtenValue(key: string, raw: string, label: string): string {
+  return key === "tags" ? label : raw;
+}
+
+// Whether a property's current value puts the note in the group with this key.
+export function hasGroup(current: unknown, key: string): boolean {
+  const list: unknown[] = current === undefined || current === null || current === "" ? [] : Array.isArray(current) ? current : [current];
+  return list.some((v) => groupKey(cleanValue(String(v))) === key);
 }
 
 // Adds a group's value to a note's frontmatter without dropping what is

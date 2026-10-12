@@ -140,7 +140,7 @@ test("folded groups are remembered by path, junk ignored", () => {
   assert.equal(savedFolded("nope").size, 0);
 });
 
-import { movedValue, toDropMode, NO_VALUE_KEY } from "../src/groups";
+import { movedValue, toDropMode, NO_VALUE_KEY, writtenValue, hasGroup } from "../src/groups";
 
 test("move swaps the source group's value for the target's, keeping the rest", () => {
   assert.deepEqual(movedValue(["main", "side"], "main", "dessert", "dessert", "move"), ["side", "dessert"]);
@@ -166,6 +166,16 @@ test("dropping on (no value) removes the source value, or clears it in replace m
 test("dragging out of (no value) adds the target", () => {
   assert.deepEqual(movedValue(undefined, NO_VALUE_KEY, "main", "main", "move"), ["main"]);
   assert.deepEqual(movedValue([], NO_VALUE_KEY, "main", "main", "add"), ["main"]);
+});
+
+test("tags are written to the tags property, without the #", () => {
+  assert.equal(frontmatterKey("file.tags"), "tags");
+  assert.equal(frontmatterKey("file.folder"), null);
+  assert.equal(writtenValue("tags", "#party", "party"), "party");
+  assert.equal(writtenValue("category", "[[Main]]", "Main"), "[[Main]]");
+  assert.equal(hasGroup(["party", "rice"], "rice"), true);
+  assert.equal(hasGroup("party", "rice"), false);
+  assert.equal(hasGroup(undefined, "rice"), false);
 });
 
 test("a drop on the same group changes nothing", () => {

@@ -1,6 +1,11 @@
 ---
-diet: [vegan]
-category: [snack, dessert]
+tags:
+  - rice
+diet:
+  - vegan
+category:
+  - snack
+  - dessert
 time: 40
 ---
 

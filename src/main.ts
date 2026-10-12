@@ -1,5 +1,5 @@
-import { BasesAllOptions, BasesEntry, BasesPropertyId, BasesView, HoverParent, HoverPopover, Keymap, Notice, Plugin, QueryController, TFile, Value, moment, parseYaml, setIcon } from "obsidian";
-import { splitIntoGroups, cleanValue, tableColumns, savedWidths, NAME_COLUMN, NO_VALUE_KEY, frontmatterKey, addValue, toOrder, groupPath, savedFolded, movedValue, toDropMode, type Group } from "./groups";
+import { BasesAllOptions, BasesEntry, BasesPropertyId, BasesView, HoverParent, HoverPopover, Keymap, Notice, Plugin, QueryController, TFile, TFolder, Value, moment, parseYaml, setIcon } from "obsidian";
+import { splitIntoGroups, cleanValue, tableColumns, savedWidths, NAME_COLUMN, NO_VALUE_KEY, frontmatterKey, addValue, toOrder, groupPath, savedFolded, movedValue, toDropMode, writtenValue, hasGroup, type Group } from "./groups";
 import { appendBody, fillPlaceholders, mergeProps, splitFrontmatter, withoutKeys } from "./template";
 
 // Split Groups: a Bases view where a note shows up under EVERY value of a list
@@ -56,6 +56,7 @@ export default class SplitGroupsPlugin extends Plugin {
         },
         { type: "toggle", key: "showNoValue", displayName: "Show notes with no value", default: true },
         { type: "file", key: "template", displayName: "Template for new notes", placeholder: "None", filter: (f) => f.extension === "md" },
+        { type: "folder", key: "folder", displayName: "Folder for new notes", placeholder: "Same as the base" },
       ],
     });
     // The toolbar's New in a Split groups view uses the view's template too.
@@ -255,7 +256,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
       frag.createDiv({ cls: "split-groups-hint", text: "Then split by is not used in the Kanban layout." });
     }
     if (layout === "kanban" && !key) {
-      frag.createDiv({ cls: "split-groups-hint", text: "Cards can be dragged between columns when Split by is a note property." });
+      frag.createDiv({ cls: "split-groups-hint", text: "Cards can be dragged between columns when Split by is a note property or the note's tags." });
     }
     // Kanban columns sit side by side in one row
     const row = layout === "kanban" ? frag.createDiv({ cls: "split-groups-board" }) : frag;
@@ -264,7 +265,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
       const path = groupPath(g.key);
       paths.push(path);
       const section = this.groupSection(row, g, path, folded, layout === "kanban" ? "split-groups-group split-groups-column" : "split-groups-group", (fm) => {
-        if (key) fm[key] = addValue(fm[key], g.raw);
+        if (key) fm[key] = addValue(fm[key], writtenValue(key, g.raw, g.label));
       }, !!key && g.key !== NO_VALUE_KEY);
       if (layout === "kanban") {
         section.dataset.key = g.key;
@@ -278,8 +279,8 @@ class SplitGroupsView extends BasesView implements HoverParent {
         const subPath = groupPath(g.key, s2.key);
         paths.push(subPath);
         const inner = this.groupSection(section, s2, subPath, folded, "split-groups-subgroup", (fm) => {
-          if (key && g.key !== NO_VALUE_KEY) fm[key] = addValue(fm[key], g.raw);
-          if (subKey) fm[subKey] = addValue(fm[subKey], s2.raw);
+          if (key && g.key !== NO_VALUE_KEY) fm[key] = addValue(fm[key], writtenValue(key, g.raw, g.label));
+          if (subKey) fm[subKey] = addValue(fm[subKey], writtenValue(subKey, s2.raw, s2.label));
         }, !!key && !!subKey && g.key !== NO_VALUE_KEY && s2.key !== NO_VALUE_KEY);
         this.renderEntries(inner, s2.entries, subColumns, layout, null);
       }
@@ -333,7 +334,36 @@ class SplitGroupsView extends BasesView implements HoverParent {
       fill(own);
       this.plugin.pending = { template, keys: Object.keys(own), fill, at: Date.now() };
     }
-    void this.createFileForView(undefined, fill);
+    const folder = this.newNoteFolder();
+    if (folder) void this.createInFolder(folder, fill, !!template);
+    else void this.createFileForView(undefined, fill);
+  }
+
+  // The folder chosen under "Folder for new notes", if it exists. Nothing
+  // chosen means the base decides, as before.
+  private newNoteFolder(): TFolder | null {
+    const raw = this.config.get("folder");
+    if (typeof raw !== "string" || !raw.trim()) return null;
+    const path = raw.trim().replace(/\/+$/, "");
+    const folder = path === "" ? this.app.vault.getRoot() : this.app.vault.getFolderByPath(path);
+    if (!folder) new Notice(`Split Groups: the folder ${path} was not found, so the note goes where the base puts it.`);
+    return folder;
+  }
+
+  // A new "Untitled" note in that folder, opened in a new tab. With a template
+  // pending, the create event fills the note in (template and group values);
+  // without one, only the group values are written here.
+  private async createInFolder(folder: TFolder, fill: Fill, templated: boolean) {
+    const dir = folder.path === "/" || folder.path === "" ? "" : `${folder.path}/`;
+    let path = `${dir}Untitled.md`;
+    for (let n = 1; this.app.vault.getAbstractFileByPath(path); n++) path = `${dir}Untitled ${n}.md`;
+    try {
+      const file = await this.app.vault.create(path, "");
+      if (!templated) await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => fill(fm));
+      await this.app.workspace.getLeaf("tab").openFile(file);
+    } catch (err) {
+      new Notice(`Split Groups could not make a note in ${folder.path}: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   private templateFile(): TFile | null {
@@ -466,13 +496,18 @@ class SplitGroupsView extends BasesView implements HoverParent {
     const target = this.columns.get(to);
     if (!key || !target) return;
     const mode = toDropMode(this.config.get("onDrop"));
+    // A tag written in the note's text is not in the tags property, so a drop
+    // cannot take it out; the note then stays in that column as well.
+    let inline = false;
     try {
       await this.app.fileManager.processFrontMatter(entry.file, (fm: Record<string, unknown>) => {
-        const next = movedValue(fm[key], from, to, target.raw, mode);
+        if (key === "tags" && mode !== "add" && from !== NO_VALUE_KEY && !hasGroup(fm[key], from)) inline = true;
+        const next = movedValue(fm[key], from, to, writtenValue(key, target.raw, target.label), mode);
         if (!next) return;
         if (next.length === 0) delete fm[key];
         else fm[key] = next;
       });
+      if (inline) new Notice(`#${this.columns.get(from)?.label ?? from} is written in the text of ${entry.file.basename}, so it stays there too.`);
     } catch (err) {
       new Notice(`Split Groups could not change ${entry.file.basename}: ${err instanceof Error ? err.message : String(err)}`);
     }

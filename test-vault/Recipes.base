@@ -46,6 +46,15 @@ views:
     splitBy: note.category
     layout: cards
     image: note.image
+    folded: []
+  - type: split-groups
+    name: By tag
+    order:
+      - file.name
+      - category
+    splitBy: file.tags
+    layout: kanban
+    folder: Inbox
   - type: table
     name: Built-in table grouped by category
     groupBy:

@@ -19,7 +19,7 @@ Group a Base by a list property today and a recipe with `category: [main, side]`
 - Every item in a list gets its own group. A single value works too.
 - `Main`, `main` and ` main ` are one group, shown with the spelling seen first.
 - Links group by the note they point to: `[[Main]]`, `[[Recipes/Main.md]]`, `[[Main|Main dish]]` and plain `main` share a group.
-- A tag's leading `#` is dropped.
+- A tag's leading `#` is dropped. Split by `file.tags` and a note shows under each of its tags, from its properties and its text alike.
 - The same value twice in one note counts once.
 - Notes with nothing in the property go to **(no value)** at the end. Turn that off with **Show notes with no value**.
 - Groups sort by name, numbers naturally (2 before 10). Notes inside a group keep the Base's own sort.
@@ -41,7 +41,7 @@ If you turn the plugin off, Split groups views show "Unknown view type" until yo
 - **Adds that group's value, keeps the others**: `[main, side]` becomes `[main, side, dessert]`.
 - **Leaves only that group's value**: `[main, side]` becomes `[dessert]`.
 
-Choose which under **Dropping a card on a group** in the view options. Dropping on **(no value)** takes the value away (or clears the property in the last mode). A short press on a card still opens the note; only a press that moves starts a drag. Cards can be dragged when **Split by** is a note property, since a file or formula property cannot be written. **Then split by** is not used in Kanban. On a phone, drag a card sideways; up and down still scrolls.
+Choose which under **Dropping a card on a group** in the view options. Dropping on **(no value)** takes the value away (or clears the property in the last mode). A short press on a card still opens the note; only a press that moves starts a drag. Cards can be dragged when **Split by** is a note property or `file.tags`, since other file properties and formulas cannot be written. Tags are written to the note's `tags` property; a tag typed in the note's text cannot be taken out by a drop, so the note stays in that column too, and a message says so. **Then split by** is not used in Kanban. On a phone, drag a card sideways; up and down still scrolls.
 
 Click a note to open it, Ctrl or Cmd click (or middle click) for a new tab, and Ctrl or Cmd hover for a preview.
 
@@ -55,6 +55,7 @@ Pick a note under **Template for new notes** in the view options. The **+** on a
 - The template's body goes in under the properties. `{{title}}`, `{{date}}` and `{{time}}` are filled in like Obsidian's own Templates, and so are `{{date:FORMAT}}` and `{{time:FORMAT}}`.
 - If the template uses Templater (`<% %>`) and Templater is installed, Templater fills it in.
 - Each view has its own template, so one Base can have a different one per view.
+- Pick a folder under **Folder for new notes** and the **+** makes the note there, as "Untitled", and opens it. With nothing chosen the base decides, as before.
 - Only Split groups views use the template. **New** in a Table, Cards or List view is not changed.
 - If the template note has been moved or deleted, the note is made blank and a message says so.
 

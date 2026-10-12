@@ -1,1 +1,1 @@
-Dragging a card in the Kanban layout keeps the spot you pressed under the pointer, as if you had lifted the card. Needs Obsidian 1.10.2 or later.
+Split by tags: with Split by set to file.tags, the + on a tag group and a drop in Kanban now write to the note's tags property (a tag typed in the note's text stays, and a message says so). Folder for new notes: a new view option; the + makes the note there and opens it. Needs Obsidian 1.10.2 or later.

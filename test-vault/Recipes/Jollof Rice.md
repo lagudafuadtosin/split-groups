@@ -1,4 +1,5 @@
 ---
+tags: [party, rice]
 diet: [vegan]
 category: [main, side]
 time: 60
