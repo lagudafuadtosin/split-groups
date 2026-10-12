@@ -151,6 +151,7 @@
 /* Cards: a grid of cards in each group, like Obsidian's own Cards view. */
 .split-groups-cards {
   display: grid;
+  align-items: start;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--size-4-3);
   padding: var(--size-4-2) 0;
@@ -252,7 +253,6 @@
   z-index: var(--layer-popover);
   pointer-events: none;
   opacity: 0.9;
-  transform: rotate(2deg);
 }
 
 .split-groups-ghost .split-groups-card {

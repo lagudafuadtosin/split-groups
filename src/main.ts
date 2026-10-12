@@ -268,7 +268,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
         this.columns.set(g.key, g);
       }
       if (!sub) {
-        this.renderEntries(section, g.entries, columns, layout, key ? g.key : null);
+        this.renderEntries(section, g.entries, columns, layout, layout === "kanban" && key ? g.key : null);
         continue;
       }
       for (const s2 of splitIntoGroups(g.entries, valuesOf(sub), showNoValue, order)) {
