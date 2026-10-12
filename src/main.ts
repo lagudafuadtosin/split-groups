@@ -152,6 +152,9 @@ interface Drag {
   from: string;
   startX: number;
   startY: number;
+  // Where on the card the press landed, so that spot stays under the pointer
+  grabX: number;
+  grabY: number;
   ghost: HTMLElement | null;
   over: HTMLElement | null;
 }
@@ -403,7 +406,8 @@ class SplitGroupsView extends BasesView implements HoverParent {
   // the pointer, and the column under the pointer on release gets the note.
   private startDrag(evt: PointerEvent, card: HTMLElement, entry: BasesEntry, from: string) {
     if (evt.button !== 0 || this.drag) return;
-    const drag: Drag = { entry, from, startX: evt.clientX, startY: evt.clientY, ghost: null, over: null };
+    const box = card.getBoundingClientRect();
+    const drag: Drag = { entry, from, startX: evt.clientX, startY: evt.clientY, grabX: evt.clientX - box.left, grabY: evt.clientY - box.top, ghost: null, over: null };
     this.drag = drag;
     const win = card.win;
     const move = (e: PointerEvent) => {
@@ -419,7 +423,7 @@ class SplitGroupsView extends BasesView implements HoverParent {
           card.setPointerCapture(e.pointerId);
         } catch { /* a pointer that cannot be captured still drags */ }
       }
-      drag.ghost.setCssStyles({ left: `${e.clientX + 8}px`, top: `${e.clientY + 8}px` });
+      drag.ghost.setCssStyles({ left: `${e.clientX - drag.grabX}px`, top: `${e.clientY - drag.grabY}px` });
       const el = this.root.doc.elementFromPoint(e.clientX, e.clientY);
       const column = el?.closest<HTMLElement>(".split-groups-column") ?? null;
       if (column !== drag.over) {

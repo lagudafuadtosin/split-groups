@@ -1,1 +1,1 @@
-The card being dragged in the Kanban layout now follows the pointer; it sat to the left of it before. Needs Obsidian 1.10.2 or later.
+Dragging a card in the Kanban layout keeps the spot you pressed under the pointer, as if you had lifted the card. Needs Obsidian 1.10.2 or later.
