@@ -1,1 +1,1 @@
-Cards in the Cards layout are no longer draggable (there is nothing to drop them on there; dragging is for Kanban), and cards without a picture keep their own height instead of stretching to match a card with one. Needs Obsidian 1.10.2 or later.
+The card being dragged in the Kanban layout now follows the pointer; it sat to the left of it before. Needs Obsidian 1.10.2 or later.

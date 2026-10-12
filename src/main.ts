@@ -409,7 +409,9 @@ class SplitGroupsView extends BasesView implements HoverParent {
     const move = (e: PointerEvent) => {
       if (!drag.ghost) {
         if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < DRAG_START) return;
-        drag.ghost = this.root.createDiv({ cls: "split-groups-ghost" });
+        // On the document body, not in the pane: a fixed element inside the pane is
+        // measured from the pane's corner, so it would sit to the left of the pointer.
+        drag.ghost = this.root.doc.body.createDiv({ cls: "split-groups-ghost" });
         drag.ghost.appendChild(card.cloneNode(true));
         drag.ghost.setCssStyles({ width: `${card.getBoundingClientRect().width}px` });
         card.addClass("split-groups-drag-source");
